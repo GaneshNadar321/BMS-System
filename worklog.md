@@ -37,3 +37,42 @@ Stage Summary:
 - Key artifacts: src/lib/battery/{data,model,store}.ts, src/components/platform/{overview,designer,designer-results,compare,traceability,shared}.tsx, src/app/page.tsx
 - Saved demo designs (in headless browser localStorage only): Baseline MJ1 10S4P passive 67/100, Option A 40T 10S4P forced 72/100, Option B A123 13S2P liquid 69/100
 - User's fresh browser starts with empty compare slots; empty state guides the demo flow
+- NOTE: This app was later superseded by BatteryLab (Task 2) — old files removed
+
+---
+Task ID: 2
+Agent: main (Z.ai)
+Task: Build "BatteryLab" — Battery Design, Testing & Analysis System per user's problem statement: design battery → thermal testing → analysis + simulation + modeling + connection. Research first, then build.
+
+Work Log:
+- Research phase (done BEFORE building, per user request):
+  * ECM theory (Wikipedia/MathWorks): Rint/Thevenin/2RC models; state-space V=OCV(SOC)+IR0+ΣVc; coulomb counting SOC; RC branch ODEs
+  * Bernardi heat generation eq + accuracy limits (Jindal 2022, Wu 2023, IEEE ICTEM 2025): Q=I(U−V)−IT(dU/dT), accurate <9C continuous
+  * Thermal limits (Ebl/dragonfly/movitherm): charge 0–45°C, discharge ≤60°C, runaway onset ~130°C, peak 400–1000°C
+  * HPPC procedure (Neware/MathWorks): 10s discharge pulse/40s rest/10s regen at 10% DOD steps, identifies R0/R1C1/R2C2
+  * CC-CV stages (battery.mba/Keysight): CC to Vmax then CV taper to C/20
+  * Series/parallel pack rules (batterydesign.net)
+- Prisma schema: BatteryDesign (cell params + ECM + thermal + pack config) + TestRun (profile, params, summary JSON, downsampled series JSON); db pushed
+- Physics engine src/lib/lab/engine.ts: OCV-SOC anchor tables for NMC/LFP/LTO/LCO with interpolation; 2RC Thevenin Euler sim (dt=1s); profiles: CC discharge, CC-CV (CV hold solve + C/20 taper), HPPC (2C pulse/40s rest/1.5C regen/1C 10% DOD ×10), urban drive cycle (cruise/accel/brake-regen/stop ×60); Bernardi thermal (I²R0+Vc1²/R1+Vc2²/R2+IT·dU/dT − hAΔT); trim series ≤400 pts; safety checks (C-rate, voltage window, 45/60/130°C thresholds, cooling, pack)
+- CRITICAL FIX during dev: terminal voltage sign was inverted (discharge rose above OCV) → corrected to V=OCV−IR0−Vc1−Vc2 with discharge-positive current; removed Math.max(0,vc) clamp so charge polarization goes negative
+- CRITICAL FIX: CV hold formula i=(ocv−vc1−vc2−vmax)/r0 (was overshooting to 4.56V)
+- FIX: regen recovery metric threshold (was None for HPPC); drive cycle 40→60 cycles
+- API routes: /api/designs GET/POST, /api/designs/[id] DELETE, /api/simulate POST (validates, runs engine, persists run, reuses identical design rows), /api/runs GET, /api/runs/[id] DELETE
+- Frontend 6 workflow tabs (zustand store, emerald/teal theme, no blue/indigo):
+  * Design: 4 chemistry preset cards, electrical/physical param editors, live KPIs (Wh, Wh/kg, 1C current, pack preview), save/load/delete library
+  * Connection: S/P sliders + ± buttons, 4 voltage presets (12/24/48/400V), visual S×P cell grid, 8 pack KPI cards
+  * Modeling: SVG 2RC circuit diagram, OCV-SOC chart, τ1/τ2/HF-impedance stats, editable R0/R1C1/R2C2, state-space explanation
+  * Simulation: 4 profile cards (auto-set start SOC), C-rate/SOC/duration sliders, run → summary grid (12 stats) + 4 charts (V cell+pack with Vmin/Vmax refs, SOC, current, temp+heat) + CSV export + safety checks with PASS/WARN/FAIL badges
+  * Thermal: 4 cooling presets (none/natural/forced/liquid) + h & ambient sliders, thermal verdict banner (safe/hot/overtemp/runaway), 4 stat cards, temp-vs-limits chart (45/60/130°C ref lines), Bernardi heat chart, recommendation box
+  * Analysis: program KPIs (runs/energy/heat/peak temp/best recovery), test log with multi-select (≤4), energy & ΔT bar comparisons, voltage & temp overlays on normalized 0–100% duration axis, CSV export, delete
+- UI bug fixes found via agent-browser: StatCard tone bg-red-50/amber-50 unreadable in dark mode → alpha-based bg-red-500/10; selected row bg-emerald-50 → emerald-500/10; checkbox double-toggle (input onChange + parent div onClick bubbling) → stopPropagation on input click; recharts per-Line data without shared dataset rendered flat → unified normalized overlay dataset via useMemo resample
+- Data cleanup: wiped stale runs from buggy-physics era (one had impossible 638.7% recovery), seeded curated demo: 1 design "NMC 21700 EV Cell" 13S2P + 5 runs (1C forced air 27.2°C, 1C adiabatic 74°C, CC-CV, HPPC 4.4% recovery, drive 35°C 15.6% recovery)
+- Removed dead code from superseded Task 1 app (src/components/platform, src/lib/battery) — fixed stale compile error
+- Verified physics: discharge V sags below OCV ✓; CCCV clamps exactly 4.20V then tapers ✓; 4C adiabatic aborts at 130°C runaway ✓; forced-air ΔT=0.63K matches Q/(hA) ✓; pack 13S×4.2V=54.6V plateau ✓; drive regen recovery 15.7% ✓
+- Browser-verified all 6 tabs, save/load design, run sims from UI, multi-select compare, delete run, mobile 390px (footer pushed naturally), zero console errors, lint clean
+
+Stage Summary:
+- Deliverable: runnable Next.js 16 app at / — BatteryLab with full workflow Design→Connection→Modeling→Simulation→Thermal Test→Analysis
+- Key artifacts: src/lib/lab/{engine,store}.ts, src/components/lab/{shared,design-tab,connection-tab,model-tab,simulate-tab,thermal-tab,analysis-tab}.tsx, src/app/api/{designs,simulate,runs}, prisma/schema.prisma (BatteryDesign+TestRun)
+- DB state: 1 design (NMC 21700 EV Cell), 5 demo runs
+- Engine: 2RC ECM + Bernardi thermal + 4 profiles, validated against hand calculations

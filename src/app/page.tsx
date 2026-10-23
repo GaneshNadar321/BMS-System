@@ -1,75 +1,61 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
-import { Zap } from "lucide-react";
-import { Overview } from "@/components/platform/overview";
-import { Designer } from "@/components/platform/designer";
-import { Compare } from "@/components/platform/compare";
-import { Traceability } from "@/components/platform/traceability";
-import { cn } from "@/lib/utils";
+import { Battery, ChevronRight, CircleDot } from "lucide-react";
+import { useLabStore } from "@/lib/lab/store";
+import { DesignTab } from "@/components/lab/design-tab";
+import { ConnectionTab } from "@/components/lab/connection-tab";
+import { ModelTab } from "@/components/lab/model-tab";
+import { SimulateTab } from "@/components/lab/simulate-tab";
+import { ThermalTab } from "@/components/lab/thermal-tab";
+import { AnalysisTab } from "@/components/lab/analysis-tab";
 
-const TABS = [
-  { id: "overview", label: "Overview" },
-  { id: "designer", label: "Designer" },
-  { id: "compare", label: "Compare" },
-  { id: "trace", label: "Traceability" },
-] as const;
-
-type TabId = (typeof TABS)[number]["id"];
-
-function subscribeToHash(onChange: () => void) {
-  window.addEventListener("hashchange", onChange);
-  return () => window.removeEventListener("hashchange", onChange);
-}
+const STEPS = [
+  { id: "design", label: "Design" },
+  { id: "connection", label: "Connection" },
+  { id: "model", label: "Modeling" },
+  { id: "simulate", label: "Simulation" },
+  { id: "thermal", label: "Thermal Test" },
+  { id: "analysis", label: "Analysis" },
+];
 
 export default function Home() {
-  const hash = useSyncExternalStore(subscribeToHash, () => window.location.hash.replace("#", ""), () => "");
-  const tab: TabId = (TABS.some((t) => t.id === hash) ? hash : "overview") as TabId;
-
-  const jump = (t: string) => {
-    if (typeof window !== "undefined") window.location.hash = t;
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
+  const activeTab = useLabStore((s) => s.activeTab);
+  const setActiveTab = useLabStore((s) => s.setActiveTab);
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/60 via-background to-background">
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+      <header className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="flex h-14 items-center gap-4">
-            <button
-              onClick={() => jump("overview")}
-              className="flex items-center gap-2 shrink-0"
-              aria-label="VoltLab home"
-            >
-              <span className="rounded-lg bg-primary/15 border border-primary/30 p-1.5">
-                <Zap className="h-4 w-4 text-primary" />
-              </span>
-              <span className="font-semibold tracking-tight">
-                Volt<span className="text-primary">Lab</span>
-              </span>
-              <span className="hidden md:inline text-[10px] text-muted-foreground border border-border/60 rounded px-1.5 py-0.5 font-mono">
-                Battery Energy System Studio
-              </span>
-            </button>
-
-            <nav
-              className="ml-auto flex items-center gap-1 overflow-x-auto max-w-[62%] sm:max-w-none"
-              aria-label="Sections"
-            >
-              {TABS.map((t) => (
+          <div className="flex h-14 items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-lg bg-emerald-600 grid place-items-center">
+                <Battery className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <div className="font-bold leading-none tracking-tight">BatteryLab</div>
+                <div className="text-[10px] text-muted-foreground leading-tight">Design · Test · Analyze</div>
+              </div>
+            </div>
+            <nav aria-label="Workflow steps" className="flex items-center gap-1 overflow-x-auto scrollbar-none">
+              {STEPS.map((s, i) => (
                 <button
-                  key={t.id}
-                  onClick={() => jump(t.id)}
-                  aria-current={tab === t.id ? "page" : undefined}
-                  className={cn(
-                    "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
-                    tab === t.id
-                      ? "bg-primary/15 text-primary border border-primary/30"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/60 border border-transparent",
-                  )}
+                  key={s.id}
+                  onClick={() => setActiveTab(s.id)}
+                  aria-current={activeTab === s.id ? "page" : undefined}
+                  className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors ${
+                    activeTab === s.id
+                      ? "bg-emerald-600 text-white shadow-sm"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
                 >
-                  {t.label}
+                  <span className={`inline-flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold ${
+                    activeTab === s.id ? "bg-white/25" : "bg-muted"
+                  }`}>
+                    {i + 1}
+                  </span>
+                  {s.label}
+                  {i < STEPS.length - 1 && <ChevronRight className="hidden sm:inline h-3 w-3 opacity-40" />}
                 </button>
               ))}
             </nav>
@@ -77,24 +63,47 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Main */}
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 sm:px-6 py-6 sm:py-8">
-        {tab === "overview" ? <Overview onJump={jump} /> : null}
-        {tab === "designer" ? <Designer /> : null}
-        {tab === "compare" ? <Compare onJump={jump} /> : null}
-        {tab === "trace" ? <Traceability /> : null}
+      {/* Hero (only on first step) */}
+      {activeTab === "design" && (
+        <section className="mx-auto max-w-7xl px-4 sm:px-6 pt-6">
+          <div className="rounded-2xl border bg-card p-5 sm:p-6">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
+              Battery Design, Testing &amp; Analysis System
+            </h1>
+            <p className="mt-1.5 text-sm text-muted-foreground max-w-3xl leading-relaxed">
+              A complete engineering workflow: <span className="font-medium text-foreground">design</span> your cell,
+              configure the pack <span className="font-medium text-foreground">connection</span>, build the equivalent-circuit
+              <span className="font-medium text-foreground"> model</span>, run <span className="font-medium text-foreground">simulations</span>,
+              execute <span className="font-medium text-foreground">thermal tests</span> with the Bernardi heat model, and
+              <span className="font-medium text-foreground"> analyze</span> every stored test run. The physics engine uses a
+              2RC Thevenin ECM integrated at 1-second steps with coulomb-counting SOC.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1"><CircleDot className="h-3 w-3 text-emerald-600" /> 4 chemistry presets</span>
+              <span className="flex items-center gap-1"><CircleDot className="h-3 w-3 text-emerald-600" /> CC / CC-CV / HPPC / drive profiles</span>
+              <span className="flex items-center gap-1"><CircleDot className="h-3 w-3 text-emerald-600" /> Bernardi thermal model</span>
+              <span className="flex items-center gap-1"><CircleDot className="h-3 w-3 text-emerald-600" /> Auto-saved test database</span>
+              <span className="flex items-center gap-1"><CircleDot className="h-3 w-3 text-emerald-600" /> CSV export</span>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Main content */}
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 sm:px-6 py-6">
+        {activeTab === "design" && <DesignTab />}
+        {activeTab === "connection" && <ConnectionTab />}
+        {activeTab === "model" && <ModelTab />}
+        {activeTab === "simulate" && <SimulateTab />}
+        {activeTab === "thermal" && <ThermalTab />}
+        {activeTab === "analysis" && <AnalysisTab />}
       </main>
 
-      {/* Footer (sticks to bottom, pushed naturally on long pages) */}
-      <footer className="mt-auto border-t border-border/60 bg-card/40">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center gap-2 justify-between">
-          <p className="text-[11px] text-muted-foreground">
-            VoltLab — virtual battery design platform · Case Study 2: Reusable Digital Platform for
-            Designing Battery Energy Systems
-          </p>
-          <p className="text-[11px] text-muted-foreground font-mono">
-            physics-based demo · low-voltage scoping · datasheet-verified cells
-          </p>
+      {/* Sticky footer */}
+      <footer className="mt-auto border-t bg-muted/40">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span>BatteryLab — electro-thermal battery engineering workspace. Results are model estimates, not a substitute for physical testing.</span>
+          <span>2RC ECM · Bernardi heat · coulomb counting</span>
         </div>
       </footer>
     </div>

@@ -14,11 +14,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "VoltLab — Battery Energy System Design Studio",
+  title: "BatteryLab — Battery Design, Testing & Analysis System",
   description:
-    "Virtual design platform for battery energy systems: configure cells, packs and cooling, simulate charging and thermal behaviour, compare design options, and trace every requirement to evidence.",
-  keywords: ["battery", "BMS", "pack design", "thermal management", "engineering", "simulation", "trade-off"],
-  authors: [{ name: "VoltLab" }],
+    "Design battery cells, configure series/parallel pack connections, build equivalent-circuit models, run discharge/charge/HPPC/drive simulations, execute thermal tests with the Bernardi heat model, and analyze every stored test run.",
+  keywords: ["battery", "ECM", "equivalent circuit", "thermal testing", "HPPC", "pack design", "simulation", "analysis"],
+  authors: [{ name: "BatteryLab" }],
   icons: {
     icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
   },
