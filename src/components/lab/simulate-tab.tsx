@@ -29,7 +29,7 @@ const PROFILES: { id: Profile; label: string; desc: string; socStart: number }[]
 ];
 
 export function SimulateTab() {
-  const { design, pack, simParams, setSimParams, lastResult, setLastResult, running, setRunning, sendCopilotMessage, copilotBusy } = useLabStore();
+  const { design, pack, simParams, setSimParams, lastResult, setLastResult, running, setRunning, updateDesign, sendCopilotMessage, copilotBusy } = useLabStore();
   const { toast } = useToast();
   const [runName, setRunName] = useState("");
 
@@ -298,6 +298,28 @@ export function SimulateTab() {
         </Card>
       </div>
 
+      {/* Cell model parameters — relocated from the (now mechanical-only) Modeling tab */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Cell model parameters — 2RC Thevenin (per cell)</CardTitle>
+          <CardDescription>
+            V = OCV(SOC) − I·R₀ − V_C1 − V_C2 · R₀ from the HPPC instantaneous step, R₁/C₁ fast recovery, R₂/C₂ slow tail. Set R₁/R₂ to 0 for a simple Rint model.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <PField label="R₀ (mΩ)" value={+(design.r0 * 1000).toFixed(2)} onChange={(v) => updateDesign({ r0: v / 1000 })} />
+          <PField label="R₁ (mΩ)" value={+(design.r1 * 1000).toFixed(2)} onChange={(v) => updateDesign({ r1: v / 1000 })} />
+          <PField label="C₁ (F)" value={design.c1} onChange={(v) => updateDesign({ c1: v })} />
+          <PField label="R₂ (mΩ)" value={+(design.r2 * 1000).toFixed(2)} onChange={(v) => updateDesign({ r2: v / 1000 })} />
+          <PField label="C₂ (F)" value={design.c2} onChange={(v) => updateDesign({ c2: v })} />
+          <div className="col-span-2 md:col-span-5 rounded-lg bg-muted/60 p-2.5 text-[11px] text-muted-foreground leading-relaxed">
+            <span className="font-medium text-foreground">State-space: </span>
+            SOĊ = −I/(3600·Q) · V̇_C1 = −V_C1/(R₁C₁) + I/C₁ · V̇_C2 = −V_C2/(R₂C₂) · Euler integration, Δt = 1 s.
+            Current parameters: R₀ {(design.r0 * 1000).toFixed(1)} mΩ · τ₁ {(design.r1 * design.c1).toFixed(1)} s · τ₂ {(design.r2 * design.c2).toFixed(0)} s.
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Custom-profile summary strip */}
       {simParams.profile === "custom" && s && (
         <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card px-4 py-3">
@@ -348,7 +370,7 @@ export function SimulateTab() {
           <ChartCard title="Cell & pack voltage">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={viewSeries} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
                 <XAxis dataKey="t" tick={{ fontSize: 11 }} unit=" s" />
                 <YAxis yAxisId="v" tick={{ fontSize: 11 }} domain={["auto", "auto"]} />
                 <YAxis yAxisId="vp" orientation="right" tick={{ fontSize: 11 }} domain={["auto", "auto"]} />
@@ -367,7 +389,7 @@ export function SimulateTab() {
           <ChartCard title="State of charge">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={viewSeries} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
                 <XAxis dataKey="t" tick={{ fontSize: 11 }} unit=" s" />
                 <YAxis tick={{ fontSize: 11 }} unit="%" domain={[0, 100]} />
                 <Tooltip labelFormatter={(l) => `t = ${l} s`} />
@@ -380,7 +402,7 @@ export function SimulateTab() {
           <ChartCard title="Current profile">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={viewSeries} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
                 <XAxis dataKey="t" tick={{ fontSize: 11 }} unit=" s" />
                 <YAxis tick={{ fontSize: 11 }} unit=" A" />
                 <Tooltip labelFormatter={(l) => `t = ${l} s`} />
@@ -393,7 +415,7 @@ export function SimulateTab() {
           <ChartCard title="Temperature & heat generation">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={viewSeries} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
                 <XAxis dataKey="t" tick={{ fontSize: 11 }} unit=" s" />
                 <YAxis yAxisId="t" tick={{ fontSize: 11 }} domain={["auto", "auto"]} unit="°C" />
                 <YAxis yAxisId="q" orientation="right" tick={{ fontSize: 11 }} unit=" W" />
@@ -436,6 +458,24 @@ export function SimulateTab() {
         summary={
           <>{PROFILES.find((p) => p.id === simParams.profile)?.label ?? simParams.profile} @ {simParams.cRate}C carried into Thermal{lastResult ? <span className="text-emerald-600"> · run result available</span> : null}</>
         }
+      />
+    </div>
+  );
+}
+
+function PField({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+  return (
+    <div>
+      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <Input
+        className="mt-1 h-8"
+        type="number"
+        step="any"
+        value={value}
+        onChange={(e) => {
+          const v = parseFloat(e.target.value);
+          if (!isNaN(v) && v >= 0) onChange(v);
+        }}
       />
     </div>
   );

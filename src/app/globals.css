@@ -77,6 +77,9 @@
   --sidebar-accent-foreground: #174a7c;
   --sidebar-border: #e2e8f0;
   --sidebar-ring: rgba(30, 90, 150, 0.4);
+  /* chart surfaces (theme-aware recharts grid / tick text) */
+  --chart-grid: #e2e8f0;
+  --chart-tick: #475569;
 }
 
 .dark {
@@ -111,6 +114,9 @@
   --sidebar-accent-foreground: oklch(0.955 0.005 106);
   --sidebar-border: oklch(0.31 0.015 235);
   --sidebar-ring: oklch(0.62 0.12 245 / 55%);
+  /* chart surfaces in dark mode */
+  --chart-grid: oklch(0.31 0.015 235);
+  --chart-tick: oklch(0.77 0.01 235);
 }
 
 @layer base {
@@ -137,3 +143,33 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+.dark ::-webkit-scrollbar-thumb {
+  background: oklch(0.38 0.015 235);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.48 0.015 235);
+}
+
+/* recharts — theme-aware axis ticks, legend text and tooltip surface */
+.recharts-cartesian-axis-tick-value {
+  fill: var(--chart-tick);
+}
+.recharts-legend-item-text {
+  color: var(--chart-tick) !important;
+}
+.recharts-default-legend {
+  font-size: 12px;
+}
+.dark .recharts-default-tooltip {
+  background-color: oklch(0.22 0.014 235) !important;
+  border-color: oklch(0.36 0.015 235) !important;
+  color: oklch(0.955 0.005 106) !important;
+}
+.dark .recharts-default-tooltip .recharts-tooltip-label {
+  color: oklch(0.955 0.005 106);
+}
+.dark .recharts-default-tooltip .recharts-tooltip-item {
+  color: oklch(0.955 0.005 106) !important;
+}
+
+/* theme-aware chart surfaces (rebuild marker) */

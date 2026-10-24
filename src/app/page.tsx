@@ -12,6 +12,7 @@ import { ThermalTab } from "@/components/lab/thermal-tab";
 import { MonitorTab } from "@/components/lab/monitor-tab";
 import { AnalysisTab } from "@/components/lab/analysis-tab";
 import { Copilot } from "@/components/lab/copilot";
+import { ThemeToggle } from "@/components/lab/theme-toggle";
 
 const STEPS = [
   { id: "design", label: "Design" },
@@ -58,7 +59,8 @@ export default function Home() {
               </div>
               <div className="font-semibold leading-none tracking-tight text-[15px]">BatteryLab</div>
             </div>
-            <nav aria-label="Workflow steps" className="flex items-center gap-0.5 rounded-lg bg-muted p-1 overflow-x-auto scrollbar-none">
+            <div className="flex items-center gap-2 min-w-0">
+              <nav aria-label="Workflow steps" className="flex items-center gap-0.5 rounded-lg bg-muted p-1 overflow-x-auto scrollbar-none">
               {STEPS.map((s, i) => (
                 <button
                   key={s.id}
@@ -84,7 +86,9 @@ export default function Home() {
                 <BookOpen className="h-3.5 w-3.5" />
                 Library
               </button>
-            </nav>
+              </nav>
+              <ThemeToggle />
+            </div>
           </div>
         </div>
       </header>

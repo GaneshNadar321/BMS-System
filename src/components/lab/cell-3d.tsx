@@ -203,31 +203,31 @@ export function CellViewer3D({ design }: { design: CellDesign }) {
           <CellBody design={design} cutaway={cutaway} ionMode={ionMode} />
           {/* part labels */}
           <Html position={[0, 2.05, 0]} center distanceFactor={7} zIndexRange={[20, 0]}>
-            <div className="rounded border bg-white/95 px-1.5 py-0.5 text-[9px] font-semibold text-slate-700 shadow-sm whitespace-nowrap">
+            <div className="rounded border bg-card/95 px-1.5 py-0.5 text-[9px] font-semibold text-slate-700 shadow-sm whitespace-nowrap">
               + terminal · vent (CID)
             </div>
           </Html>
           {cutaway && (
             <>
               <Html position={[-1.9, 1.0, 0.4]} center distanceFactor={7} zIndexRange={[20, 0]}>
-                <div className="rounded border bg-white/95 px-1.5 py-0.5 text-[9px] font-semibold shadow-sm whitespace-nowrap" style={{ color: "#9a6b3f" }}>
+                <div className="rounded border bg-card/95 px-1.5 py-0.5 text-[9px] font-semibold shadow-sm whitespace-nowrap" style={{ color: "#9a6b3f" }}>
                   Cathode (Al + {design.chemistry})
                 </div>
               </Html>
               <Html position={[1.5, 0, 0.6]} center distanceFactor={7} zIndexRange={[20, 0]}>
-                <div className="rounded border bg-white/95 px-1.5 py-0.5 text-[9px] font-semibold text-slate-500 shadow-sm whitespace-nowrap">
+                <div className="rounded border bg-card/95 px-1.5 py-0.5 text-[9px] font-semibold text-slate-500 shadow-sm whitespace-nowrap">
                   Separator (PE/PP)
                 </div>
               </Html>
               <Html position={[-1.4, -1.0, 0.4]} center distanceFactor={7} zIndexRange={[20, 0]}>
-                <div className="rounded border bg-white/95 px-1.5 py-0.5 text-[9px] font-semibold text-slate-700 shadow-sm whitespace-nowrap">
+                <div className="rounded border bg-card/95 px-1.5 py-0.5 text-[9px] font-semibold text-slate-700 shadow-sm whitespace-nowrap">
                   Anode (Cu + graphite)
                 </div>
               </Html>
             </>
           )}
           <Html position={[-2.1, -1.55, 0]} center distanceFactor={7} zIndexRange={[20, 0]}>
-            <div className="rounded border bg-white/95 px-1.5 py-0.5 text-[9px] font-semibold text-slate-700 shadow-sm whitespace-nowrap">
+            <div className="rounded border bg-card/95 px-1.5 py-0.5 text-[9px] font-semibold text-slate-700 shadow-sm whitespace-nowrap">
               Steel can (−)
             </div>
           </Html>
@@ -243,14 +243,14 @@ export function CellViewer3D({ design }: { design: CellDesign }) {
         </Canvas>
         {/* watermark stats */}
         <div className="pointer-events-none absolute bottom-2 left-2 flex flex-wrap gap-1.5">
-          <span className="rounded bg-white/90 border px-1.5 py-0.5 text-[10px] font-semibold" style={{ color: chem }}>
+          <span className="rounded bg-card/90 border px-1.5 py-0.5 text-[10px] font-semibold" style={{ color: chem }}>
             {design.chemistry}
           </span>
-          <span className="rounded bg-white/90 border px-1.5 py-0.5 text-[10px] text-slate-600">
+          <span className="rounded bg-card/90 border px-1.5 py-0.5 text-[10px] text-slate-600">
             ⌀{(r * 2).toFixed(0)} × {h.toFixed(0)} mm
           </span>
           {design.massKg > 0 && (
-            <span className="rounded bg-white/90 border px-1.5 py-0.5 text-[10px] text-slate-600">
+            <span className="rounded bg-card/90 border px-1.5 py-0.5 text-[10px] text-slate-600">
               {(design.massKg * 1000).toFixed(0)} g
             </span>
           )}
@@ -262,7 +262,7 @@ export function CellViewer3D({ design }: { design: CellDesign }) {
         <span className="inline-flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-sm" style={{ background: chem }} /> wrapper / chemistry</span>
         <span className="inline-flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-sm bg-[#b9bec8]" /> steel can</span>
         <span className="inline-flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-sm bg-[#9a6b3f]" /> cathode foil</span>
-        <span className="inline-flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-sm bg-slate-100 border" /> separator</span>
+        <span className="inline-flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-sm bg-slate-100 dark:bg-slate-800 border" /> separator</span>
         <span className="inline-flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-sm bg-[#2f3540]" /> anode foil</span>
         <span className="inline-flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-full bg-amber-400" /> Li⁺ ions</span>
         <span className="ml-auto">drag to orbit · scroll to zoom</span>

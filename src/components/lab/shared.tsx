@@ -75,7 +75,7 @@ export function WizardNav({
         )}
         {last ? (
           <>
-            <Badge variant="outline" className="gap-1 border-emerald-200 bg-emerald-50 text-emerald-700">
+            <Badge variant="outline" className="gap-1 border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300">
               <CheckCircle2 className="h-3 w-3" /> Workflow complete
             </Badge>
             <Button size="sm" variant="outline" onClick={() => setActiveTab("design")}>
@@ -193,13 +193,13 @@ export function SectionTitle({ title, desc, icon }: { title: string; desc?: stri
   );
 }
 
-export function StatCard({ label, value, unit, hint, tone }: { label: string; value: string | number; unit?: string; hint?: string; tone?: "default" | "warn" | "fail" }) {
+export function StatCard({ label, value, unit, hint, tone }: { label: string; value: ReactNode; unit?: string; hint?: ReactNode; tone?: "default" | "warn" | "fail" }) {
   return (
     <div
       className={cn(
         "rounded-lg border bg-card p-2.5",
-        tone === "warn" && "border-amber-300 bg-amber-50",
-        tone === "fail" && "border-red-300 bg-red-50"
+        tone === "warn" && "border-amber-300 bg-amber-50 dark:border-amber-500/40 dark:bg-amber-500/10",
+        tone === "fail" && "border-red-300 bg-red-50 dark:border-red-500/40 dark:bg-red-500/10"
       )}
     >
       <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">{label}</div>

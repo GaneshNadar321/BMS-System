@@ -601,7 +601,7 @@ function RealWorldPreview() {
         <ChartCard title="Loaded voltage vs SOC — voltage sag under real loads">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={sagData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
               <XAxis dataKey="soc" tick={{ fontSize: 11 }} unit="%" />
               <YAxis tick={{ fontSize: 11 }} unit=" V" domain={["auto", "auto"]} />
               <Tooltip labelFormatter={(l) => `SOC ${l}%`} />
@@ -625,7 +625,7 @@ function RealWorldPreview() {
         <ChartCard title="Usable capacity vs C-rate — real-world derating">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={effData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
               <XAxis dataKey="cRate" tick={{ fontSize: 11 }} unit="C" />
               <YAxis tick={{ fontSize: 11 }} unit="%" domain={[0, 105]} />
               <Tooltip labelFormatter={(l) => `${l}C`} />

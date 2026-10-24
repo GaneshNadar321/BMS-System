@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 // designed cell (diameter/length) and the Connection S×P config.
 // ============================================================
 
-const WORLD_H = 1.5;
+export const WORLD_H = 1.5;
 
 interface Layout {
   R: number; // cell world radius
@@ -32,7 +32,8 @@ interface Layout {
   isPouch: boolean;
 }
 
-function layoutOf(design: CellDesign, s: number, p: number): Layout {
+// Shared with the 3D thermal view so both draw the identical pack geometry
+export function layoutOf(design: CellDesign, s: number, p: number): Layout {
   const isPouch = /pouch|prismatic|blade/i.test(design.formFactor || "");
   const { r, h } = dimsOf(design);
   const R = isPouch ? 0.42 : Math.min(0.62, Math.max(0.26, (r / h) * WORLD_H * 2.2));
@@ -199,14 +200,14 @@ function PackScene({
               <meshStandardMaterial color="#dc2626" metalness={0.6} roughness={0.3} />
             </mesh>
             <Html position={[first.x - L.groupW / 2 + 0.12, busY + 0.45, first.z]} center distanceFactor={8} zIndexRange={[20, 0]}>
-              <div className="rounded border bg-white/95 px-1.5 py-0.5 text-[9px] font-bold text-red-600 shadow-sm whitespace-nowrap">+ terminal</div>
+              <div className="rounded border bg-card/95 px-1.5 py-0.5 text-[9px] font-bold text-red-600 shadow-sm whitespace-nowrap">+ terminal</div>
             </Html>
             <mesh position={[last.x + L.groupW / 2 - 0.12, busY + 0.09, last.z]} castShadow>
               <cylinderGeometry args={[0.09, 0.09, 0.18, 20]} />
               <meshStandardMaterial color="#334155" metalness={0.6} roughness={0.3} />
             </mesh>
             <Html position={[last.x + L.groupW / 2 - 0.12, busY + 0.45, last.z]} center distanceFactor={8} zIndexRange={[20, 0]}>
-              <div className="rounded border bg-white/95 px-1.5 py-0.5 text-[9px] font-bold text-slate-700 shadow-sm whitespace-nowrap">− terminal</div>
+              <div className="rounded border bg-card/95 px-1.5 py-0.5 text-[9px] font-bold text-red-500 dark:text-slate-200 shadow-sm whitespace-nowrap">− terminal</div>
             </Html>
           </>
         );
@@ -225,7 +226,7 @@ function PackScene({
           </mesh>
         ))}
         <Html position={[Math.min(0.7, L.totalX / 2), 0.2, 0]} center distanceFactor={8} zIndexRange={[20, 0]}>
-          <div className="rounded border bg-white/95 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700 shadow-sm whitespace-nowrap">BMS · CMU</div>
+          <div className="rounded border bg-card/95 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-600 dark:text-emerald-400 shadow-sm whitespace-nowrap">BMS · CMU</div>
         </Html>
       </group>
 
@@ -256,9 +257,9 @@ function PackStats({ design, s, p, chem, total, rendered, halfX }: { design: Cel
   return (
     <>
       <Html position={[0, WORLD_H / 2 + 0.55, 0]} center distanceFactor={10} zIndexRange={[20, 0]}>
-        <div className="rounded-md border bg-white/95 px-2 py-1 text-center shadow-sm whitespace-nowrap">
-          <span className="text-[11px] font-bold text-slate-800">{s}S{p}P · {total} cell{total === 1 ? "" : "s"}</span>
-          <span className="text-[10px] text-slate-500"> · {packV.toFixed(1)} V · {packAh.toFixed(1)} Ah · {(packV * packAh).toFixed(0)} Wh</span>
+        <div className="rounded-md border bg-card/95 px-2 py-1 text-center shadow-sm whitespace-nowrap">
+          <span className="text-[11px] font-bold text-foreground">{s}S{p}P · {total} cell{total === 1 ? "" : "s"}</span>
+          <span className="text-[10px] text-muted-foreground"> · {packV.toFixed(1)} V · {packAh.toFixed(1)} Ah · {(packV * packAh).toFixed(0)} Wh</span>
         </div>
       </Html>
       {rendered < total && (
@@ -269,7 +270,7 @@ function PackStats({ design, s, p, chem, total, rendered, halfX }: { design: Cel
         </Html>
       )}
       <Html position={[-(halfX + 0.55), WORLD_H / 2 - 0.2, 0]} center distanceFactor={10} zIndexRange={[20, 0]}>
-        <div className="pointer-events-none rounded border bg-white/90 px-1.5 py-0.5 text-[9px] font-bold shadow-sm whitespace-nowrap" style={{ color: chem }}>
+        <div className="pointer-events-none rounded border bg-card/90 px-1.5 py-0.5 text-[9px] font-bold shadow-sm whitespace-nowrap" style={{ color: chem }}>
           {design.chemistry}
         </div>
       </Html>
@@ -327,14 +328,14 @@ export default function PackViewer3D({ design, series, parallel }: { design: Cel
           <FitCamera sizeX={L.totalX} sizeZ={L.totalZ} />
         </Canvas>
         <div className="pointer-events-none absolute bottom-2 left-2 flex flex-wrap gap-1.5">
-          <span className="rounded bg-white/90 border px-1.5 py-0.5 text-[10px] font-semibold" style={{ color: chem }}>
+          <span className="rounded bg-card/90 border px-1.5 py-0.5 text-[10px] font-semibold" style={{ color: chem }}>
             {design.chemistry}
           </span>
-          <span className="rounded bg-white/90 border px-1.5 py-0.5 text-[10px] text-slate-600">
+          <span className="rounded bg-card/90 border px-1.5 py-0.5 text-[10px] text-muted-foreground">
             {(design.nominalV * series).toFixed(1)} V · {(design.capacityAh * parallel).toFixed(1)} Ah
           </span>
           {design.massKg > 0 && (
-            <span className="rounded bg-white/90 border px-1.5 py-0.5 text-[10px] text-slate-600">
+            <span className="rounded bg-card/90 border px-1.5 py-0.5 text-[10px] text-muted-foreground">
               ≈ {(design.massKg * series * parallel).toFixed(1)} kg cells
             </span>
           )}

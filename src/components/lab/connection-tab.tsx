@@ -14,12 +14,14 @@ import { cn } from "@/lib/utils";
 
 const MAX_G = 10; // series groups drawn
 const MAX_C = 6; // parallel cells drawn per group
-const SPACING = 24; // x distance between parallel cells
-const GAP = 16; // x gap between groups
-const RAIL_TOP = 30;
-const RAIL_BOT = 172;
-const BMS_TOP = 206;
-const SVG_H = 240;
+const SPACING = 26; // x distance between parallel cells
+const GAP = 34; // x gap between groups (room for the series bracket)
+const CELL0 = 16; // first cell centre inside a group
+const RAIL_TOP = 34;
+const RAIL_BOT = 176;
+const BMS_Y = 216; // BMS box top
+const BMS_H = 26;
+const SVG_H = 258;
 const STEPS = ["Cells placed", "Parallel bus bars", "Series links", "Terminals + BMS"];
 
 interface Group {
@@ -272,43 +274,51 @@ export function ConnectionTab() {
 }
 
 // ------------------------------------------------------------
-// Schematic: alternating battery symbols wired in a classic
-// series-parallel drawing. Groups render left → right, each
-// group = P parallel cells between two bus bars; series links
-// alternate top/bottom; pack terminals + BMS finish the circuit.
+// Schematic — canonical series-parallel ladder, drawn electrically
+// correct: every cell shares one orientation (long plate = + on
+// top), each parallel group hangs between its own two bus bars,
+// adjacent groups are chained − → + with bracket-shaped series
+// links (bottom rail of group k up to the top rail of group k+1),
+// and the pack terminals sit on the OUTER rails only (pack + on
+// the first group's top rail, pack − on the last group's bottom
+// rail) so no terminal ever shares a node with a series link.
+// Each build stage adds one wiring layer.
 // ------------------------------------------------------------
 
 function PackSchematic({ series, parallel, stage, vmax }: { series: number; parallel: number; stage: number; vmax: number }) {
   const L = useMemo<Layout>(() => {
     const slots = Math.min(parallel, MAX_C);
     const hasPlus = parallel > MAX_C;
-    const gw = (slots + (hasPlus ? 1 : 0)) * SPACING + 12;
+    const gw = CELL0 + Math.max(0, slots - 1) * SPACING + CELL0 + (hasPlus ? 24 : 0);
     const truncated = series > MAX_G;
-    const groups: Group[] = [];
     const drawn = truncated ? MAX_G - 1 : series; // leave room for the gap marker + final group
-    let x = 48; // room for the + terminal stub
+    const groups: Group[] = [];
+    let x = 56; // room for the + terminal lead on the left
     for (let i = 0; i < drawn; i++) {
       groups.push({ idx: i, left: x, right: x + gw });
       x += gw + GAP;
     }
     let gap: Layout["gap"] = null;
     if (truncated) {
-      gap = { left: x, right: x + 48, n: series - MAX_G };
-      x += 48 + GAP;
+      gap = { left: x, right: x + 52, n: series - MAX_G };
+      x += 52 + GAP;
       groups.push({ idx: series - 1, left: x, right: x + gw });
       x += gw;
     }
-    return { groups, gap, width: x + 48, slots, hasPlus, truncated };
+    return { groups, gap, width: x + 40, slots, hasPlus, truncated };
   }, [series, parallel]);
 
   const cy = (RAIL_TOP + RAIL_BOT) / 2;
+  const first = L.groups[0];
   const last = L.groups[L.groups.length - 1];
-  const yNeg = last.idx % 2 === 1 ? RAIL_TOP : RAIL_BOT; // pack minus rail
-  const boxW = 64;
-  const bx = L.width / 2 - boxW / 2;
+  const busL = (g: Group) => g.left + 5;
+  const busR = (g: Group) => g.right - 5;
+  const cellX = (g: Group, i: number) => g.left + CELL0 + i * SPACING;
+  const boxW = 72;
+  const bx = Math.max(20, L.width / 2 - boxW / 2);
 
   return (
-    <div className="overflow-x-auto rounded-lg border bg-white px-1 pb-1">
+    <div className="overflow-x-auto rounded-lg border bg-card px-1 pb-1">
       <svg
         width={L.width}
         height={SVG_H}
@@ -317,138 +327,155 @@ function PackSchematic({ series, parallel, stage, vmax }: { series: number; para
         aria-label={`Pack schematic ${series}S${parallel}P`}
         className="select-none"
       >
-        {/* Cells (placed from the design) */}
-        {L.groups.map((g) => {
-          const flipped = g.idx % 2 === 1;
-          return (
-            <g key={g.idx} className="stroke-primary" strokeWidth={1.8} fill="none" strokeLinecap="round">
+        {/* ===== cells — one orientation, long plate (+) on top, short thick plate (−) below ===== */}
+        {L.groups.map((g) => (
+          <g key={g.idx}>
+            {Array.from({ length: L.slots }).map((_, i) => {
+              const cx = cellX(g, i);
+              return (
+                <g key={i} className="stroke-primary" strokeWidth={1.8} fill="none" strokeLinecap="round">
+                  <path d={`M ${cx - 9} ${cy - 5} H ${cx + 9}`} strokeWidth={2.2} />
+                  <path d={`M ${cx - 3.5} ${cy + 5} H ${cx + 3.5}`} strokeWidth={3.2} />
+                </g>
+              );
+            })}
+            {L.hasPlus && (
+              <g className="stroke-border">
+                <rect x={g.right - 22} y={RAIL_TOP + 26} width={16} height={RAIL_BOT - RAIL_TOP - 52} rx={4} strokeWidth={1.2} strokeDasharray="3 3" className="fill-muted" />
+                <text x={g.right - 14} y={cy + 3} textAnchor="middle" fontSize={9} className="fill-muted-foreground" stroke="none">+{parallel - MAX_C}</text>
+              </g>
+            )}
+            {/* rail polarity marks — + is the top rail, − the bottom rail of every group */}
+            <text x={busL(g) + 2} y={RAIL_TOP - 8} fontSize={9} fontWeight={700} className="fill-red-500" stroke="none">+</text>
+            <text x={busL(g) + 2} y={RAIL_BOT + 13} fontSize={9} fontWeight={700} className="fill-slate-500 dark:fill-slate-400" stroke="none">−</text>
+            <text x={(g.left + g.right) / 2} y={196} textAnchor="middle" fontSize={10} className="fill-muted-foreground" stroke="none">
+              S{g.idx + 1}
+            </text>
+          </g>
+        ))}
+
+        {/* ===== stage 0 — cells are unconnected: floating pins ===== */}
+        {stage === 0 &&
+          L.groups.map((g) => (
+            <g key={`pins-${g.idx}`} className="stroke-slate-400 dark:stroke-slate-500" strokeWidth={1.2} fill="none">
               {Array.from({ length: L.slots }).map((_, i) => {
-                const cx = g.left + 18 + i * SPACING;
-                return flipped ? (
+                const cx = cellX(g, i);
+                return (
                   <g key={i}>
-                    <path d={`M ${cx} ${RAIL_TOP} V ${cy - 4}`} />
-                    <path d={`M ${cx - 3.5} ${cy - 4} H ${cx + 3.5}`} strokeWidth={3} />
-                    <path d={`M ${cx - 9} ${cy + 6} H ${cx + 9}`} strokeWidth={2.2} />
-                    <path d={`M ${cx} ${cy + 6} V ${RAIL_BOT}`} />
-                  </g>
-                ) : (
-                  <g key={i}>
-                    <path d={`M ${cx} ${RAIL_TOP} V ${cy - 6}`} />
-                    <path d={`M ${cx - 9} ${cy - 6} H ${cx + 9}`} strokeWidth={2.2} />
-                    <path d={`M ${cx - 3.5} ${cy + 4} H ${cx + 3.5}`} strokeWidth={3} />
-                    <path d={`M ${cx} ${cy + 4} V ${RAIL_BOT}`} />
+                    <path d={`M ${cx} ${cy - 5} V ${cy - 13}`} strokeDasharray="2 2" />
+                    <path d={`M ${cx} ${cy + 5} V ${cy + 13}`} strokeDasharray="2 2" />
+                    <circle cx={cx} cy={cy - 16} r={2.2} className="fill-background" />
+                    <circle cx={cx} cy={cy + 16} r={2.2} className="fill-background" />
                   </g>
                 );
               })}
-              {L.hasPlus && (
-                <g className="stroke-slate-300">
-                  <rect
-                    x={g.left + 14 + L.slots * SPACING}
-                    y={RAIL_TOP + 24}
-                    width={14}
-                    height={RAIL_BOT - RAIL_TOP - 48}
-                    rx={4}
-                    strokeWidth={1.2}
-                    strokeDasharray="3 3"
-                    className="fill-slate-50"
-                  />
-                  <text
-                    x={g.left + 21 + L.slots * SPACING}
-                    y={cy + 3}
-                    textAnchor="middle"
-                    fontSize={9}
-                    className="fill-slate-400"
-                    stroke="none"
-                  >
-                    +{parallel - MAX_C}
-                  </text>
-                </g>
-              )}
-              {stage === 0 &&
-                Array.from({ length: L.slots }).map((_, i) => (
-                  <g key={`dot-${i}`} className="stroke-slate-400">
-                    <circle cx={g.left + 18 + i * SPACING} cy={RAIL_TOP} r={2.5} strokeWidth={1.2} className="fill-white" />
-                    <circle cx={g.left + 18 + i * SPACING} cy={RAIL_BOT} r={2.5} strokeWidth={1.2} className="fill-white" />
-                  </g>
-                ))}
-              <text x={(g.left + g.right) / 2} y={188} textAnchor="middle" fontSize={10} className="fill-slate-500" stroke="none">
-                {g.idx + 1}
-              </text>
             </g>
-          );
-        })}
+          ))}
+        {stage === 0 && (
+          <text x={L.width / 2} y={BMS_Y + 17} textAnchor="middle" fontSize={10} className="fill-muted-foreground" stroke="none">
+            {parallel} cell{parallel === 1 ? "" : "s"} per group, unconnected — press “Connect parallel” to wire the bus bars
+          </text>
+        )}
 
-        {/* Parallel bus bars */}
-        <g className={cn("stroke-primary transition-opacity duration-500", stage >= 1 ? "opacity-100" : "opacity-0")} strokeWidth={2.5} strokeLinecap="round" fill="none">
+        {/* ===== stage 1 — parallel bus bars: one pair of rails per group ===== */}
+        <g className={cn("stroke-primary transition-opacity duration-500", stage >= 1 ? "opacity-100" : "opacity-0")} strokeWidth={2.6} strokeLinecap="round" fill="none">
           {L.groups.map((g) => (
             <g key={`r-${g.idx}`}>
-              <path d={`M ${g.left} ${RAIL_TOP} H ${g.right}`} />
-              <path d={`M ${g.left} ${RAIL_BOT} H ${g.right}`} />
+              <path d={`M ${busL(g)} ${RAIL_TOP} H ${busR(g)}`} />
+              <path d={`M ${busL(g)} ${RAIL_BOT} H ${busR(g)}`} />
             </g>
           ))}
         </g>
+        {/* cell taps up to the rails + junction dots at every 3-way connection */}
+        <g className={cn("stroke-primary transition-opacity duration-500", stage >= 1 ? "opacity-100" : "opacity-0")} strokeWidth={1.6} fill="none" strokeLinecap="round">
+          {L.groups.map((g) =>
+            Array.from({ length: L.slots }).map((_, i) => {
+              const cx = cellX(g, i);
+              return <path key={`s-${g.idx}-${i}`} d={`M ${cx} ${RAIL_TOP} V ${cy - 5} M ${cx} ${cy + 5} V ${RAIL_BOT}`} />;
+            })
+          )}
+          {L.slots > 1 &&
+            L.groups.map((g) =>
+              Array.from({ length: L.slots }).map((_, i) => (
+                <g key={`d-${g.idx}-${i}`} className="stroke-primary" strokeWidth={0.8}>
+                  <circle cx={cellX(g, i)} cy={RAIL_TOP} r={1.9} className="fill-primary" />
+                  <circle cx={cellX(g, i)} cy={RAIL_BOT} r={1.9} className="fill-primary" />
+                </g>
+              ))
+            )}
+        </g>
 
-        {/* Truncation gap marker */}
-        {L.gap && (
-          <g>
-            <rect
-              x={L.gap.left + 6}
-              y={RAIL_TOP + 40}
-              width={L.gap.right - L.gap.left - 12}
-              height={RAIL_BOT - RAIL_TOP - 80}
-              rx={5}
-              className="fill-slate-50 stroke-slate-300"
-              strokeWidth={1.2}
-              strokeDasharray="4 3"
-            />
-            <text x={(L.gap.left + L.gap.right) / 2} y={cy + 3} textAnchor="middle" fontSize={10} className="fill-slate-400">
-              +{L.gap.n}
-            </text>
-          </g>
-        )}
-
-        {/* Series links — alternate top/bottom between groups */}
+        {/* ===== stage 2 — series links: − (bottom rail of group k) → + (top rail of group k+1) ===== */}
         <g fill="none" className={cn("transition-opacity duration-500", stage >= 2 ? "opacity-100" : "opacity-0")}>
           {L.groups.map((g, i) => {
             if (i === 0) return null;
             const gA = L.groups[i - 1];
-            const y = gA.idx % 2 === 0 ? RAIL_TOP : RAIL_BOT;
-            const crossesGap = L.gap !== null && i === L.groups.length - 1;
-            if (crossesGap) {
-              const midX = (gA.right + g.left) / 2;
-              return (
-                <path
-                  key={`l-${i}`}
-                  d={`M ${gA.right} ${y} H ${midX} V ${yNeg} H ${g.left}`}
-                  className="stroke-primary/60"
-                  strokeWidth={2}
-                  strokeDasharray="5 4"
-                />
-              );
-            }
+            const midX = (gA.right + g.left) / 2;
             return (
-              <path key={`l-${i}`} d={`M ${gA.right} ${y} H ${g.left}`} className="stroke-primary" strokeWidth={2.5} strokeLinecap="round" />
+              <path
+                key={`l-${i}`}
+                d={`M ${busR(gA)} ${RAIL_BOT} H ${midX} V ${RAIL_TOP} H ${busL(g)}`}
+                className="stroke-primary"
+                strokeWidth={2.2}
+                strokeLinecap="round"
+              />
             );
           })}
+          {/* junction dots where the brackets tap the rails */}
+          {L.groups.map((g, i) => {
+            if (i === 0) return null;
+            const gA = L.groups[i - 1];
+            const midX = (gA.right + g.left) / 2;
+            return (
+              <g key={`jd-${i}`} className="stroke-primary" strokeWidth={0.8}>
+                <circle cx={busR(gA)} cy={RAIL_BOT} r={2.2} className="fill-primary" />
+                <circle cx={busL(g)} cy={RAIL_TOP} r={2.2} className="fill-primary" />
+              </g>
+            );
+          })}
+          {/* dashed continuation across the truncation gap */}
+          {L.gap && (() => {
+            const prev = L.groups[L.groups.length - 2];
+            const gl = L.groups[L.groups.length - 1];
+            const midX = (L.gap.left + L.gap.right) / 2;
+            return (
+              <path
+                d={`M ${busR(prev)} ${RAIL_BOT} H ${midX} V ${RAIL_TOP} H ${busL(gl)}`}
+                className="stroke-primary/60"
+                strokeWidth={2}
+                strokeDasharray="5 4"
+                strokeLinecap="round"
+              />
+            );
+          })()}
         </g>
 
-        {/* Terminals + BMS */}
+        {/* ===== stage 3 — pack terminals on the outer rails + BMS sense lines ===== */}
         <g className={cn("transition-opacity duration-500", stage >= 3 ? "opacity-100" : "opacity-0")}>
-          {/* pack + */}
-          <path d={`M ${L.groups[0].left} ${RAIL_TOP} H 16`} className="stroke-red-600" strokeWidth={2.5} fill="none" strokeLinecap="round" />
-          <circle cx={12} cy={RAIL_TOP} r={4} className="fill-red-600" />
-          <text x={12} y={RAIL_TOP - 10} textAnchor="middle" fontSize={12} fontWeight={700} className="fill-red-600">+</text>
-          <text x={12} y={RAIL_TOP + 22} textAnchor="middle" fontSize={9} className="fill-slate-500">{vmax} V</text>
-          {/* pack − */}
-          <path d={`M ${last.right} ${yNeg} H ${last.right + 28}`} className="stroke-slate-700" strokeWidth={2.5} fill="none" strokeLinecap="round" />
-          <circle cx={last.right + 32} cy={yNeg} r={4} className="fill-slate-700" />
-          <text x={last.right + 32} y={yNeg - 10} textAnchor="middle" fontSize={12} fontWeight={700} className="fill-slate-700">−</text>
-          {/* BMS */}
-          <path d={`M 12 ${RAIL_TOP + 8} V ${BMS_TOP + 13} H ${bx}`} className="stroke-slate-400" strokeWidth={1.3} strokeDasharray="4 3" fill="none" />
-          <path d={`M ${last.right + 32} ${yNeg === RAIL_TOP ? RAIL_TOP + 8 : RAIL_BOT + 8} V ${BMS_TOP + 13} H ${bx + boxW}`} className="stroke-slate-400" strokeWidth={1.3} strokeDasharray="4 3" fill="none" />
-          <rect x={bx} y={BMS_TOP} width={boxW} height={26} rx={5} className="fill-slate-100 stroke-slate-400" strokeWidth={1.2} />
-          <text x={L.width / 2} y={BMS_TOP + 17} textAnchor="middle" fontSize={10} fontWeight={600} className="fill-slate-600">BMS</text>
+          {/* pack + : first group's TOP rail, extended to the left edge */}
+          <path d={`M ${busL(first)} ${RAIL_TOP} H 26`} className="stroke-red-600" strokeWidth={2.6} fill="none" strokeLinecap="round" />
+          <circle cx={22} cy={RAIL_TOP} r={4.2} className="fill-red-600" />
+          <text x={22} y={RAIL_TOP - 11} textAnchor="middle" fontSize={13} fontWeight={700} className="fill-red-600">+</text>
+          <text x={22} y={RAIL_TOP + 21} textAnchor="middle" fontSize={9} fontWeight={600} className="fill-muted-foreground">{vmax} V</text>
+          {/* pack − : last group's BOTTOM rail, extended to the right edge */}
+          <path d={`M ${busR(last)} ${RAIL_BOT} H ${L.width - 26}`} className="stroke-slate-700 dark:stroke-slate-300" strokeWidth={2.6} fill="none" strokeLinecap="round" />
+          <circle cx={L.width - 22} cy={RAIL_BOT} r={4.2} className="fill-slate-700 dark:fill-slate-300" />
+          <text x={L.width - 22} y={RAIL_BOT - 11} textAnchor="middle" fontSize={13} fontWeight={700} className="fill-slate-700 dark:fill-slate-300">−</text>
+          {/* BMS sense lines routed down the outer margins — never crossing the cells */}
+          <path d={`M 22 ${RAIL_TOP + 8} V ${BMS_Y + BMS_H / 2} H ${bx}`} className="stroke-slate-400 dark:stroke-slate-500" strokeWidth={1.3} strokeDasharray="4 3" fill="none" />
+          <path d={`M ${L.width - 22} ${RAIL_BOT + 8} V ${BMS_Y + BMS_H / 2} H ${bx + boxW}`} className="stroke-slate-400 dark:stroke-slate-500" strokeWidth={1.3} strokeDasharray="4 3" fill="none" />
+          <rect x={bx} y={BMS_Y} width={boxW} height={BMS_H} rx={6} className="fill-muted stroke-border" strokeWidth={1.3} />
+          <text x={bx + boxW / 2} y={BMS_Y + 17} textAnchor="middle" fontSize={10} fontWeight={700} className="fill-foreground">BMS</text>
         </g>
+
+        {/* ===== truncation gap marker ===== */}
+        {L.gap && (
+          <g>
+            <rect x={L.gap.left + 4} y={RAIL_TOP + 42} width={L.gap.right - L.gap.left - 8} height={RAIL_BOT - RAIL_TOP - 84} rx={5} className="fill-muted stroke-border" strokeWidth={1.2} strokeDasharray="4 3" />
+            <text x={(L.gap.left + L.gap.right) / 2} y={cy - 8} textAnchor="middle" fontSize={12} className="fill-muted-foreground" stroke="none">⋯</text>
+            <text x={(L.gap.left + L.gap.right) / 2} y={cy + 12} textAnchor="middle" fontSize={10} fontWeight={600} className="fill-muted-foreground" stroke="none">+{L.gap.n}</text>
+          </g>
+        )}
       </svg>
     </div>
   );

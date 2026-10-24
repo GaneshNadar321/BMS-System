@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Thermometer, Loader2, Snowflake, Flame, TriangleAlert, Sparkles } from "lucide-react";
+import { Thermometer, Loader2, Snowflake, Flame, TriangleAlert, Sparkles, Boxes } from "lucide-react";
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine,
 } from "recharts";
@@ -14,9 +15,14 @@ import { useLabStore } from "@/lib/lab/store";
 import { designIssues } from "@/lib/lab/engine";
 import { usePlayback } from "@/lib/lab/use-playback";
 import { SectionTitle, StatCard, ChartCard, CHART_COLORS, COOLING_PRESETS, WizardNav, PlaybackBar, fmtClock } from "./shared";
-import { ThermalBlocks } from "./thermal-blocks";
 import { PackThermalMap } from "./pack-thermal-map";
 import { cn } from "@/lib/utils";
+
+// 3D thermal simulation of the whole pack — client-only (WebGL), code-split
+const PackThermal3D = dynamic(() => import("./pack-thermal-3d"), {
+  ssr: false,
+  loading: () => <div className="h-[400px] rounded-lg border bg-slate-100 dark:bg-slate-900 animate-pulse" />,
+});
 
 export function ThermalTab() {
   const { design, pack, simParams, setSimParams, lastResult, setLastResult, running, setRunning, sendCopilotMessage, copilotBusy } = useLabStore();
@@ -160,9 +166,9 @@ export function ThermalTab() {
             <div
               className={cn(
                 "rounded-xl border-2 p-4 flex items-center gap-4",
-                status.tone === "ok" && "border-emerald-400 bg-emerald-50",
-                status.tone === "warn" && "border-amber-400 bg-amber-50",
-                status.tone === "fail" && "border-red-400 bg-red-50"
+                status.tone === "ok" && "border-emerald-400 bg-emerald-50 dark:bg-emerald-500/10",
+                status.tone === "warn" && "border-amber-400 bg-amber-50 dark:bg-amber-500/10",
+                status.tone === "fail" && "border-red-400 bg-red-50 dark:bg-red-500/10"
               )}
             >
               {status.tone === "fail" ? (
@@ -171,7 +177,7 @@ export function ThermalTab() {
                 <Thermometer className={cn("h-10 w-10 shrink-0", status.tone === "ok" ? "text-emerald-600" : "text-amber-600")} />
               )}
               <div>
-                <div className={cn("font-bold text-lg", status.tone === "ok" ? "text-emerald-800" : status.tone === "warn" ? "text-amber-800" : "text-red-800")}>
+                <div className={cn("font-bold text-lg", status.tone === "ok" ? "text-emerald-800 dark:text-emerald-300" : status.tone === "warn" ? "text-amber-800 dark:text-amber-300" : "text-red-800 dark:text-red-300")}>
                   {status.label}
                 </div>
                 <div className="text-sm text-muted-foreground">{status.desc}</div>
@@ -190,7 +196,7 @@ export function ThermalTab() {
             )}
 
             {s && s.deltaT > 20 && s.tempMaxC > 60 && (
-              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+              <div className="rounded-lg border border-red-200 bg-red-50 dark:border-red-500/30 dark:bg-red-500/10 p-3 text-sm text-red-800 dark:text-red-300">
                 <span className="font-semibold">Recommendation:</span> this test overheats the cell. Try “Forced air” or “Liquid cold plate”, or lower the C-rate — and verify charging is blocked above 45°C in your BMS logic.
               </div>
             )}
@@ -198,25 +204,46 @@ export function ThermalTab() {
         </Card>
       </div>
 
-      {/* Simulink-style thermal model — live values follow the sliders */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Thermal simulation — block diagram (Simulink-style)</CardTitle>
-          <CardDescription>
-            Heat source → thermal mass integrator → convection feedback, drawn like a Simulink sheet. Signal values react live to the cooling settings; the scope replays your latest thermal test (analytic preview before the first run).
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ThermalBlocks
-            design={design}
-            ambientC={simParams.ambientC}
-            hConv={simParams.hConv}
-            coolingOn={simParams.coolingOn}
-            cRate={Math.max(1, simParams.cRate)}
-            series={series}
-          />
-        </CardContent>
-      </Card>
+      {/* 3D thermal simulation — the whole pack, temperature-coloured, driven by the shared clock */}
+      {series.length > 0 ? (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2"><Boxes className="h-4 w-4 text-primary" /> 3D thermal simulation — {pack.series}S{pack.parallel}P full pack</CardTitle>
+            <CardDescription>
+              Every cell coloured by its modelled temperature as the thermal test replays — airflow gradient, heat glow and cooling stream included.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PackThermal3D
+              design={design}
+              series={pack.series}
+              parallel={pack.parallel}
+              tMean={pb.cur.tempC}
+              ambientC={simParams.ambientC}
+              hConv={simParams.hConv}
+              coolingOn={simParams.coolingOn}
+            />
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2"><Boxes className="h-4 w-4 text-primary" /> 3D thermal simulation</CardTitle>
+            <CardDescription>Run the 1C thermal test — the full pack is then rendered in 3D with live per-cell temperatures.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PackThermal3D
+              design={design}
+              series={pack.series}
+              parallel={pack.parallel}
+              tMean={simParams.ambientC}
+              ambientC={simParams.ambientC}
+              hConv={simParams.hConv}
+              coolingOn={simParams.coolingOn}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Live pack thermal map — every cell of the S×P pack, follows playback */}
       {series.length > 0 && (
@@ -272,7 +299,7 @@ export function ThermalTab() {
           <ChartCard title={pb.syncCharts ? "Scope — cell temperature vs limits (live)" : "Scope — cell temperature vs limits"}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={pb.viewSeries} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
                 <XAxis dataKey="t" tick={{ fontSize: 11 }} unit=" s" />
                 <YAxis tick={{ fontSize: 11 }} unit="°C" domain={["auto", "auto"]} />
                 <Tooltip labelFormatter={(l) => `t = ${l} s`} />
@@ -288,7 +315,7 @@ export function ThermalTab() {
           <ChartCard title={pb.syncCharts ? "Scope — heat generation rate, Bernardi (live)" : "Scope — heat generation rate, Bernardi"}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={pb.viewSeries} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
                 <XAxis dataKey="t" tick={{ fontSize: 11 }} unit=" s" />
                 <YAxis tick={{ fontSize: 11 }} unit=" W" />
                 <Tooltip labelFormatter={(l) => `t = ${l} s`} />

@@ -251,7 +251,7 @@ export function AnalysisTab() {
             <ChartCard title="Pack energy (Wh)">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={compareBars} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
                   <XAxis dataKey="name" tick={{ fontSize: 10 }} />
                   <YAxis tick={{ fontSize: 11 }} unit=" Wh" />
                   <Tooltip />
@@ -262,7 +262,7 @@ export function AnalysisTab() {
             <ChartCard title="Temperature rise ΔT (K)">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={compareBars} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
                   <XAxis dataKey="name" tick={{ fontSize: 10 }} />
                   <YAxis tick={{ fontSize: 11 }} unit=" K" />
                   <Tooltip />
@@ -275,7 +275,7 @@ export function AnalysisTab() {
           <ChartCard title="Pack voltage overlay (normalized test duration)">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={overlay.rows} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
                 <XAxis dataKey="pct" tick={{ fontSize: 11 }} unit=" %" domain={[0, 100]} />
                 <YAxis tick={{ fontSize: 11 }} unit=" V" domain={["auto", "auto"]} />
                 <Tooltip labelFormatter={(l) => `${l}% of test`} />
@@ -299,7 +299,7 @@ export function AnalysisTab() {
           <ChartCard title="Temperature overlay (normalized test duration)">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={overlay.rows} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
                 <XAxis dataKey="pct" tick={{ fontSize: 11 }} unit=" %" domain={[0, 100]} />
                 <YAxis tick={{ fontSize: 11 }} unit="°C" domain={["auto", "auto"]} />
                 <Tooltip labelFormatter={(l) => `${l}% of test`} />

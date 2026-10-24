@@ -4,6 +4,7 @@ import { useId } from "react";
 import type { CellDesign, SimPoint } from "@/lib/lab/engine";
 import type { PackUIState } from "@/lib/lab/store";
 import { PlaybackBar, fmtClock } from "./shared";
+import { cn } from "@/lib/utils";
 
 // Playback engine lives in src/lib/lab/use-playback.ts —
 // the whole recorded test plays in ~40 s at 1× speed.
@@ -12,9 +13,9 @@ void PLAY_SECONDS;
 
 function modeOf(cur: SimPoint | undefined): { label: string; cls: string; dot: string } {
   const i = cur?.iCell ?? 0;
-  if (i > 0.05) return { label: "DISCHARGING", cls: "border-amber-300 bg-amber-50 text-amber-700", dot: "#d97706" };
-  if (i < -0.05) return { label: "CHARGING", cls: "border-emerald-300 bg-emerald-50 text-emerald-700", dot: "#059669" };
-  return { label: "REST", cls: "border-slate-300 bg-slate-100 text-slate-600", dot: "#64748b" };
+  if (i > 0.05) return { label: "DISCHARGING", cls: "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300", dot: "#d97706" };
+  if (i < -0.05) return { label: "CHARGING", cls: "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300", dot: "#059669" };
+  return { label: "REST", cls: "border-slate-300 bg-slate-100 text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300", dot: "#64748b" };
 }
 
 export interface BenchProps {
@@ -91,7 +92,7 @@ export function SimBench(props: BenchProps) {
       />
 
       {/* the bench */}
-      <div className="overflow-x-auto rounded-lg border bg-gradient-to-b from-slate-50 to-slate-100 p-2">
+      <div className="overflow-x-auto rounded-lg border bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950 p-2">
         <svg viewBox="0 0 960 312" className="min-w-[700px] w-full" role="img" aria-label="Animated battery test bench">
           <defs>
             <radialGradient id={`glow${uid}`}>
@@ -112,7 +113,7 @@ export function SimBench(props: BenchProps) {
           </defs>
 
           {/* ambient note */}
-          <text x={16} y={20} fontSize={10} fill="#64748b">
+          <text x={16} y={20} fontSize={10} fill="#64748b" className="fill-slate-500 dark:fill-slate-400">
             Ambient {ambientC}°C · forced convection {coolingOn ? `h = ${hConv} W/m²K` : "off"}
           </text>
 
@@ -188,11 +189,11 @@ export function SimBench(props: BenchProps) {
           {/* ---- cell fixture ---- */}
           <g>
             <rect x={420} y={222} width={100} height={16} rx={4} fill="#94a3b8" opacity={0.35} />
-            <text x={470} y={252} fontSize={10} fontWeight={600} fill="#475569" textAnchor="middle">
+            <text x={470} y={252} fontSize={10} fontWeight={600} fill="#475569" className="fill-slate-500 dark:fill-slate-400" textAnchor="middle">
               test fixture
             </text>
             {/* body */}
-            <rect x={435} y={96} width={70} height={bodyH} rx={10} fill="#e2e8f0" stroke="#94a3b8" strokeWidth={1.5} />
+            <rect x={435} y={96} width={70} height={bodyH} rx={10} fill="#e2e8f0" className="fill-slate-200 dark:fill-slate-700" stroke="#94a3b8" strokeWidth={1.5} />
             {/* + terminal nub */}
             <rect x={458} y={88} width={24} height={9} rx={2} fill="#c0c4cc" stroke="#94a3b8" />
             {/* steel top band */}
@@ -212,7 +213,7 @@ export function SimBench(props: BenchProps) {
           {/* ---- cooling fan ---- */}
           {coolingOn && (
             <g>
-              <circle cx={575} cy={155} r={27} fill="#f8fafc" stroke="#94a3b8" strokeWidth={2} />
+              <circle cx={575} cy={155} r={27} fill="#f8fafc" className="fill-slate-50 dark:fill-slate-800" stroke="#94a3b8" strokeWidth={2} />
               <g transform="translate(575 155)">
                 <g>
                   {fanBlades}
@@ -220,7 +221,7 @@ export function SimBench(props: BenchProps) {
                 </g>
                 <circle r={4.5} fill="#334155" />
               </g>
-              <text x={575} y={196} fontSize={9} fill="#64748b" textAnchor="middle">
+              <text x={575} y={196} fontSize={9} fill="#64748b" className="fill-slate-500 dark:fill-slate-400" textAnchor="middle">
                 {hConv >= 150 ? "liquid plate" : hConv >= 30 ? "fan" : "natural"} · h={hConv}
               </text>
               {/* airflow */}
@@ -242,7 +243,7 @@ export function SimBench(props: BenchProps) {
 
           {/* ---- mode pill ---- */}
           <g>
-            <rect x={430} y={44} width={80} height={22} rx={11} className={mode.cls} fill="#fff" stroke={mode.dot} opacity={0.95} />
+            <rect x={430} y={44} width={80} height={22} rx={11} className={cn(mode.cls, "fill-card")} stroke={mode.dot} opacity={0.95} />
             <circle cx={444} cy={55} r={3.5} fill={mode.dot} className={playing ? "animate-pulse" : ""} />
             <text x={476} y={59} fontSize={9} fontWeight={800} fill={mode.dot} textAnchor="middle">
               {mode.label}
@@ -269,18 +270,18 @@ export function SimBench(props: BenchProps) {
             },
           ].map((g) => (
             <g key={g.label}>
-              <rect x={g.x} y={g.y} width={150} height={96} rx={9} fill="#ffffff" stroke="#e2e8f0" />
+              <rect x={g.x} y={g.y} width={150} height={96} rx={9} fill="#ffffff" className="fill-card stroke-border" stroke="#e2e8f0" />
               <rect x={g.x} y={g.y} width={150} height={3} rx={1.5} fill={g.color} opacity={0.85} />
-              <text x={g.x + 12} y={g.y + 24} fontSize={8.5} fill="#64748b" letterSpacing={0.8} fontWeight={700}>
+              <text x={g.x + 12} y={g.y + 24} fontSize={8.5} fill="#64748b" className="fill-slate-500 dark:fill-slate-400" letterSpacing={0.8} fontWeight={700}>
                 {g.label}
               </text>
-              <text x={g.x + 12} y={g.y + 50} fontSize={21} fontWeight={800} fill="#0f172a" fontFamily="ui-monospace, monospace">
+              <text x={g.x + 12} y={g.y + 50} fontSize={21} fontWeight={800} fill="#0f172a" className="fill-foreground" fontFamily="ui-monospace, monospace">
                 {g.value}
               </text>
-              <text x={g.x + 12} y={g.y + 66} fontSize={9} fill="#94a3b8">
+              <text x={g.x + 12} y={g.y + 66} fontSize={9} fill="#94a3b8" className="fill-slate-400 dark:fill-slate-500">
                 {g.sub}
               </text>
-              <rect x={g.x + 12} y={g.y + 76} width={126} height={6} rx={3} fill="#e2e8f0" />
+              <rect x={g.x + 12} y={g.y + 76} width={126} height={6} rx={3} fill="#e2e8f0" className="fill-slate-200 dark:fill-slate-700" />
               <rect
                 x={g.x + 12}
                 y={g.y + 76}
@@ -294,12 +295,12 @@ export function SimBench(props: BenchProps) {
           ))}
 
           {/* ---- progress ---- */}
-          <rect x={640} y={286} width={316} height={7} rx={3.5} fill="#e2e8f0" />
+          <rect x={640} y={286} width={316} height={7} rx={3.5} fill="#e2e8f0" className="fill-slate-200 dark:fill-slate-700" />
           <rect x={640} y={286} width={Math.max(2, 316 * frac)} height={7} rx={3.5} fill="#1e5a96" style={{ transition: "width .2s linear" }} />
-          <text x={958} y={292} fontSize={9} fill="#94a3b8" textAnchor="end">
+          <text x={958} y={292} fontSize={9} fill="#94a3b8" className="fill-slate-400 dark:fill-slate-500" textAnchor="end">
             {(frac * 100).toFixed(0)}%
           </text>
-          <text x={640} y={280} fontSize={9} fill="#64748b">
+          <text x={640} y={280} fontSize={9} fill="#64748b" className="fill-slate-500 dark:fill-slate-400">
             test progress — {fmtClock(cur.t)} elapsed
           </text>
         </svg>
