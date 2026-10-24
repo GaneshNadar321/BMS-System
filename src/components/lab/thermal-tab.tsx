@@ -12,8 +12,10 @@ import {
 } from "recharts";
 import { useLabStore } from "@/lib/lab/store";
 import { designIssues } from "@/lib/lab/engine";
-import { SectionTitle, StatCard, ChartCard, CHART_COLORS, COOLING_PRESETS, WizardNav } from "./shared";
+import { usePlayback } from "@/lib/lab/use-playback";
+import { SectionTitle, StatCard, ChartCard, CHART_COLORS, COOLING_PRESETS, WizardNav, PlaybackBar, fmtClock } from "./shared";
 import { ThermalBlocks } from "./thermal-blocks";
+import { PackThermalMap } from "./pack-thermal-map";
 import { cn } from "@/lib/utils";
 
 export function ThermalTab() {
@@ -61,6 +63,8 @@ export function ThermalTab() {
 
   const s = lastResult?.summary;
   const series = lastResult?.series ?? [];
+  // Live playback: scopes, the pack map and every thermal chart follow one clock
+  const pb = usePlayback(series, simParams.ambientC);
   const peak = s?.tempMaxC ?? simParams.ambientC;
   const status =
     peak > 130 ? { label: "THERMAL RUNAWAY RISK", tone: "fail" as const, desc: "≥130°C separator collapse / runaway onset" }
@@ -214,12 +218,60 @@ export function ThermalTab() {
         </CardContent>
       </Card>
 
+      {/* Live pack thermal map — every cell of the S×P pack, follows playback */}
+      {series.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Live pack thermal map — {pack.series}S{pack.parallel}P</CardTitle>
+            <CardDescription>
+              Every cell of your pack, coloured by temperature as the test replays. Downstream-of-airflow cells run hotter; the hottest and coldest cells are ringed.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PackThermalMap
+              design={design}
+              series={pack.series}
+              parallel={pack.parallel}
+              cur={pb.cur}
+              ambientC={simParams.ambientC}
+              hConv={simParams.hConv}
+              coolingOn={simParams.coolingOn}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Thermal charts — live scopes driven by the shared playback clock */}
+      {series.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">Scope playback — replay the thermal test in real time</CardTitle>
+            <CardDescription>One clock drives the scopes below and the pack map above, like a scope triggering on the recorded run.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PlaybackBar
+              tick={pb.tick}
+              len={pb.length}
+              playing={pb.playing}
+              speed={pb.speed}
+              syncCharts={pb.syncCharts}
+              clock={<>{fmtClock(pb.cur.t)} / {fmtClock(series[series.length - 1]?.t ?? 0)}</>}
+              onPlayPause={pb.toggle}
+              onRestart={pb.restart}
+              onSpeed={pb.setSpeed}
+              onScrub={pb.scrub}
+              onSyncToggle={pb.setSyncCharts}
+            />
+          </CardContent>
+        </Card>
+      )}
+
       {/* Thermal charts */}
       {series.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <ChartCard title="Scope — cell temperature vs limits">
+          <ChartCard title={pb.syncCharts ? "Scope — cell temperature vs limits (live)" : "Scope — cell temperature vs limits"}>
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={series} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+              <LineChart data={pb.viewSeries} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="t" tick={{ fontSize: 11 }} unit=" s" />
                 <YAxis tick={{ fontSize: 11 }} unit="°C" domain={["auto", "auto"]} />
@@ -233,9 +285,9 @@ export function ThermalTab() {
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="Scope — heat generation rate (Bernardi)">
+          <ChartCard title={pb.syncCharts ? "Scope — heat generation rate, Bernardi (live)" : "Scope — heat generation rate, Bernardi"}>
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={series} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+              <LineChart data={pb.viewSeries} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="t" tick={{ fontSize: 11 }} unit=" s" />
                 <YAxis tick={{ fontSize: 11 }} unit=" W" />
@@ -248,11 +300,11 @@ export function ThermalTab() {
         </div>
       )}
 
-      {/* Wizard: Thermal → Analysis carries the thermal result */}
+      {/* Wizard: Thermal → Monitor carries the thermal result */}
       <WizardNav
         step={4}
         summary={
-          <>{activePreset?.label ?? (simParams.coolingOn ? `h = ${simParams.hConv} W/m²K` : "adiabatic")} environment{series.length > 0 ? <span className="text-emerald-600"> · thermal result ready for Analysis</span> : null}</>
+          <>{activePreset?.label ?? (simParams.coolingOn ? `h = ${simParams.hConv} W/m²K` : "adiabatic")} environment{series.length > 0 ? <span className="text-emerald-600"> · thermal result ready for Monitor</span> : null}</>
         }
       />
     </div>

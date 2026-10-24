@@ -3,7 +3,8 @@
 import { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowRight, CheckCircle2, Lock, RotateCcw } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { ArrowLeft, ArrowRight, CheckCircle2, Lock, Pause, Play, RotateCcw } from "lucide-react";
 import { useLabStore } from "@/lib/lab/store";
 import { cn } from "@/lib/utils";
 
@@ -14,11 +15,22 @@ export const WIZARD = [
   { id: "model", label: "Modeling" },
   { id: "simulate", label: "Simulation" },
   { id: "thermal", label: "Thermal" },
+  { id: "monitor", label: "Monitor" },
   { id: "analysis", label: "Analysis" },
 ] as const;
 
+/** mm:ss (or h:mm:ss) clock used by every playback bar. */
+export function fmtClock(s: number) {
+  const m = Math.floor(s / 60);
+  const sec = Math.round(s % 60);
+  const hh = Math.floor(m / 60);
+  return hh > 0
+    ? `${hh}:${String(m % 60).padStart(2, "0")}:${String(sec).padStart(2, "0")}`
+    : `${m}:${String(sec).padStart(2, "0")}`;
+}
+
 /**
- * Bottom-of-page wizard bar: shows progress through the 6-step workflow,
+ * Bottom-of-page wizard bar: shows progress through the 7-step workflow,
  * a one-line summary of the configuration carried forward, and Back/Next
  * buttons. All tab state lives in the shared store, so the next step
  * always opens with everything the user configured so far. `nextDisabled`
@@ -91,6 +103,80 @@ export function WizardNav({
         <span className="font-medium text-foreground">Step {step + 1} of {WIZARD.length} · {WIZARD[step].label}</span>
         {summary != null && <span className="text-muted-foreground"> — {summary}</span>}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Shared playback controls (play / restart / speed / scrub / clock / chart-sync)
+ * for every live view that replays a run: the Simulation test bench, the
+ * Thermal scopes + pack map and the Monitor dashboard. One clock everywhere.
+ */
+export function PlaybackBar({
+  tick,
+  len,
+  playing,
+  speed,
+  syncCharts,
+  clock,
+  onPlayPause,
+  onRestart,
+  onSpeed,
+  onScrub,
+  onSyncToggle,
+}: {
+  tick: number;
+  len: number;
+  playing: boolean;
+  speed: number;
+  syncCharts: boolean;
+  clock: ReactNode;
+  onPlayPause: () => void;
+  onRestart: () => void;
+  onSpeed: (v: number) => void;
+  onScrub: (v: number) => void;
+  onSyncToggle?: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button size="sm" onClick={onPlayPause} disabled={len < 2} className="bg-primary hover:bg-primary/90">
+        {playing ? <Pause className="h-3.5 w-3.5 mr-1" /> : <Play className="h-3.5 w-3.5 mr-1" />}
+        {playing ? "Pause" : "Play"}
+      </Button>
+      <Button size="sm" variant="outline" onClick={onRestart} disabled={len < 2}>
+        <RotateCcw className="h-3.5 w-3.5" />
+      </Button>
+      <div className="flex items-center gap-0.5 rounded-md border bg-muted/40 p-0.5" role="group" aria-label="Playback speed">
+        {[0.5, 1, 2, 4].map((v) => (
+          <button
+            key={v}
+            onClick={() => onSpeed(v)}
+            className={cn(
+              "rounded px-2 py-1 text-[11px] font-semibold tabular-nums transition-colors",
+              speed === v ? "bg-primary text-white shadow-sm" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {v}×
+          </button>
+        ))}
+      </div>
+      <div className="flex items-center gap-2 min-w-[140px] flex-1 max-w-[340px]">
+        <Slider
+          value={[tick]}
+          min={0}
+          max={Math.max(1, len - 1)}
+          step={1}
+          disabled={len < 2}
+          onValueChange={([v]) => onScrub(v)}
+          aria-label="Scrub through the test"
+        />
+      </div>
+      <span className="text-[11px] tabular-nums text-muted-foreground font-medium">{clock}</span>
+      {onSyncToggle && (
+        <Button size="sm" variant={syncCharts ? "default" : "outline"} className="ml-auto h-7 px-2.5 text-[11px]" onClick={() => onSyncToggle(!syncCharts)}>
+          {syncCharts ? "Charts: follow playback" : "Charts: full data"}
+        </Button>
+      )}
     </div>
   );
 }

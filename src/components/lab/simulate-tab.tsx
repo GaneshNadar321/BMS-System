@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -14,7 +14,8 @@ import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine,
 } from "recharts";
 import { useLabStore } from "@/lib/lab/store";
-import { designIssues, type Profile, type CustomSegment, type SimPoint } from "@/lib/lab/engine";
+import { designIssues, type Profile, type CustomSegment } from "@/lib/lab/engine";
+import { usePlayback } from "@/lib/lab/use-playback";
 import { SectionTitle, StatCard, StatusBadge, ChartCard, CHART_COLORS, WizardNav } from "./shared";
 import { seriesToCsv } from "@/lib/lab/engine";
 import { SimBench } from "./sim-bench";
@@ -32,56 +33,11 @@ export function SimulateTab() {
   const { toast } = useToast();
   const [runName, setRunName] = useState("");
 
-  // ---- playback state: the recorded test replays like a live bench ----
+  // ---- playback: the recorded test replays like a live bench ----
   const series = lastResult?.series ?? [];
-  const [tick, setTick] = useState(0);
-  const [playing, setPlaying] = useState(false);
-  const [speed, setSpeed] = useState(1);
-  const [syncCharts, setSyncCharts] = useState(true);
-  const posRef = useRef(0);
-  const playingRef = useRef(false);
-  const speedRef = useRef(1);
-  playingRef.current = playing;
-  speedRef.current = speed;
-
-  // new result → rewind and auto-play
-  useEffect(() => {
-    posRef.current = 0;
-    setTick(0);
-    setPlaying(series.length > 1);
-  }, [series]);
-
-  // RAF advance — re-render only when the integer index changes
-  useEffect(() => {
-    if (series.length < 2) return;
-    let raf = 0;
-    let last = performance.now();
-    let lastTick = -1;
-    const loop = (now: number) => {
-      const dt = Math.min(0.1, (now - last) / 1000);
-      last = now;
-      if (playingRef.current) {
-        posRef.current += dt * speedRef.current * (series.length / 40); // whole test ≈ 40 s at 1×
-        if (posRef.current >= series.length - 1) {
-          posRef.current = series.length - 1;
-          setPlaying(false);
-        }
-        const t = Math.floor(posRef.current);
-        if (t !== lastTick) {
-          lastTick = t;
-          setTick(t);
-        }
-      }
-      raf = requestAnimationFrame(loop);
-    };
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
-  }, [series.length]);
-
-  const cur: SimPoint = series[Math.min(tick, Math.max(0, series.length - 1))] ?? {
-    t: 0, vCell: 0, vPack: 0, soc: 1, iCell: 0, tempC: simParams.ambientC, qGen: 0, ocv: 0, mode: "rest",
-  };
-  const viewSeries = syncCharts ? series.slice(0, tick + 1) : series;
+  const pb = usePlayback(series, simParams.ambientC);
+  const cur = pb.cur;
+  const viewSeries = pb.viewSeries;
 
   const issues = designIssues(design);
   const segs = simParams.customSegments;
@@ -367,28 +323,20 @@ export function SimulateTab() {
             <SimBench
               series={series}
               cur={cur}
-              tick={tick}
-              playing={playing}
-              speed={speed}
-              syncCharts={syncCharts}
+              tick={pb.tick}
+              playing={pb.playing}
+              speed={pb.speed}
+              syncCharts={pb.syncCharts}
               design={design}
               pack={pack}
               coolingOn={simParams.coolingOn}
               hConv={simParams.hConv}
               ambientC={simParams.ambientC}
-              onPlayPause={() => setPlaying((p) => !p)}
-              onRestart={() => {
-                posRef.current = 0;
-                setTick(0);
-                setPlaying(true);
-              }}
-              onSpeed={setSpeed}
-              onScrub={(v) => {
-                posRef.current = v;
-                setTick(v);
-                setPlaying(false);
-              }}
-              onSyncToggle={() => setSyncCharts((v) => !v)}
+              onPlayPause={pb.toggle}
+              onRestart={pb.restart}
+              onSpeed={pb.setSpeed}
+              onScrub={pb.scrub}
+              onSyncToggle={pb.setSyncCharts}
             />
           </CardContent>
         </Card>

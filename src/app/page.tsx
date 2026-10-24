@@ -9,6 +9,7 @@ import { ConnectionTab } from "@/components/lab/connection-tab";
 import { ModelTab } from "@/components/lab/model-tab";
 import { SimulateTab } from "@/components/lab/simulate-tab";
 import { ThermalTab } from "@/components/lab/thermal-tab";
+import { MonitorTab } from "@/components/lab/monitor-tab";
 import { AnalysisTab } from "@/components/lab/analysis-tab";
 import { Copilot } from "@/components/lab/copilot";
 
@@ -18,6 +19,7 @@ const STEPS = [
   { id: "model", label: "Modeling" },
   { id: "simulate", label: "Simulation" },
   { id: "thermal", label: "Thermal" },
+  { id: "monitor", label: "Monitor" },
   { id: "analysis", label: "Analysis" },
 ];
 
@@ -33,6 +35,7 @@ export default function Home() {
     model: useLabStore((s) => s.visitedSteps.includes("model")),
     simulate: useLabStore((s) => s.lastResult !== null),
     thermal: useLabStore((s) => s.visitedSteps.includes("thermal")),
+    monitor: useLabStore((s) => s.visitedSteps.includes("monitor")),
     analysis: useLabStore((s) => s.visitedSteps.includes("analysis")),
   };
 
@@ -94,6 +97,7 @@ export default function Home() {
         {activeTab === "model" && <ModelTab />}
         {activeTab === "simulate" && <SimulateTab />}
         {activeTab === "thermal" && <ThermalTab />}
+        {activeTab === "monitor" && <MonitorTab />}
         {activeTab === "analysis" && <AnalysisTab />}
       </main>
 

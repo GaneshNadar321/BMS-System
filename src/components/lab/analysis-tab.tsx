@@ -158,7 +158,7 @@ export function AnalysisTab() {
     <div className="space-y-6">
       <SectionTitle
         icon={<BarChart3 className="h-5 w-5" />}
-        title="6 · Battery Analysis"
+        title="7 · Battery Analysis"
         desc="Compare stored test runs side by side and export the dataset."
       />
 
@@ -323,7 +323,7 @@ export function AnalysisTab() {
       )}
 
       {/* Wizard: Analysis is the final step — restart or go back */}
-      <WizardNav step={5} summary={runs.length > 0 ? `${runs.length} stored run${runs.length === 1 ? "" : "s"} in the database` : "no stored runs yet"} />
+      <WizardNav step={6} summary={runs.length > 0 ? `${runs.length} stored run${runs.length === 1 ? "" : "s"} in the database` : "no stored runs yet"} />
     </div>
   );
 }

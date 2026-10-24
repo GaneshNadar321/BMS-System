@@ -1,24 +1,14 @@
 "use client";
 
 import { useId } from "react";
-import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
-import { Pause, Play, RotateCcw } from "lucide-react";
 import type { CellDesign, SimPoint } from "@/lib/lab/engine";
 import type { PackUIState } from "@/lib/lab/store";
-import { cn } from "@/lib/utils";
+import { PlaybackBar, fmtClock } from "./shared";
 
-// Playback: the whole recorded test plays in ~40 s at 1× speed.
+// Playback engine lives in src/lib/lab/use-playback.ts —
+// the whole recorded test plays in ~40 s at 1× speed.
 const PLAY_SECONDS = 40;
-
-const fmtClock = (s: number) => {
-  const m = Math.floor(s / 60);
-  const sec = Math.round(s % 60);
-  const hh = Math.floor(m / 60);
-  return hh > 0
-    ? `${hh}:${String(m % 60).padStart(2, "0")}:${String(sec).padStart(2, "0")}`
-    : `${m}:${String(sec).padStart(2, "0")}`;
-};
+void PLAY_SECONDS;
 
 function modeOf(cur: SimPoint | undefined): { label: string; cls: string; dot: string } {
   const i = cur?.iCell ?? 0;
@@ -43,7 +33,7 @@ export interface BenchProps {
   onRestart: () => void;
   onSpeed: (v: number) => void;
   onScrub: (v: number) => void;
-  onSyncToggle: () => void;
+  onSyncToggle: (v: boolean) => void;
 }
 
 export function SimBench(props: BenchProps) {
@@ -52,7 +42,7 @@ export function SimBench(props: BenchProps) {
   const len = series.length;
   const frac = len > 1 ? tick / (len - 1) : 0;
 
-  const soc = cur.soc > 1.5 ? cur.soc / 100 : cur.soc; // engine reports 0–100, normalize to 0–1
+  const soc = cur.soc / 100; // engine always reports percent (0–100)
   const T = cur.tempC;
   const I = cur.iCell;
   const V = cur.vCell;
@@ -85,52 +75,20 @@ export function SimBench(props: BenchProps) {
 
   return (
     <div className="space-y-3">
-      {/* controls */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" onClick={props.onPlayPause} disabled={len < 2} className="bg-primary hover:bg-primary/90">
-          {playing ? <Pause className="h-3.5 w-3.5 mr-1" /> : <Play className="h-3.5 w-3.5 mr-1" />}
-          {playing ? "Pause" : "Play"}
-        </Button>
-        <Button size="sm" variant="outline" onClick={props.onRestart} disabled={len < 2}>
-          <RotateCcw className="h-3.5 w-3.5" />
-        </Button>
-        <div className="flex items-center gap-0.5 rounded-md border bg-muted/40 p-0.5" role="group" aria-label="Playback speed">
-          {[0.5, 1, 2, 4].map((v) => (
-            <button
-              key={v}
-              onClick={() => props.onSpeed(v)}
-              className={cn(
-                "rounded px-2 py-1 text-[11px] font-semibold tabular-nums transition-colors",
-                speed === v ? "bg-primary text-white shadow-sm" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {v}×
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-2 min-w-[140px] flex-1 max-w-[340px]">
-          <Slider
-            value={[tick]}
-            min={0}
-            max={Math.max(1, len - 1)}
-            step={1}
-            disabled={len < 2}
-            onValueChange={([v]) => props.onScrub(v)}
-            aria-label="Scrub through the test"
-          />
-        </div>
-        <span className="text-[11px] tabular-nums text-muted-foreground font-medium">
-          {fmtClock(cur.t)} / {fmtClock(series[len - 1]?.t ?? 0)}
-        </span>
-        <Button
-          size="sm"
-          variant={syncCharts ? "default" : "outline"}
-          className="ml-auto h-7 px-2.5 text-[11px]"
-          onClick={props.onSyncToggle}
-        >
-          {syncCharts ? "Charts: follow playback" : "Charts: full data"}
-        </Button>
-      </div>
+      {/* controls — shared live clock across bench / scopes / monitor */}
+      <PlaybackBar
+        tick={tick}
+        len={len}
+        playing={playing}
+        speed={speed}
+        syncCharts={syncCharts}
+        clock={<>{fmtClock(cur.t)} / {fmtClock(series[len - 1]?.t ?? 0)}</>}
+        onPlayPause={props.onPlayPause}
+        onRestart={props.onRestart}
+        onSpeed={props.onSpeed}
+        onScrub={props.onScrub}
+        onSyncToggle={props.onSyncToggle}
+      />
 
       {/* the bench */}
       <div className="overflow-x-auto rounded-lg border bg-gradient-to-b from-slate-50 to-slate-100 p-2">

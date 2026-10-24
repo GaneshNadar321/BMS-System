@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 // Chemistry → wrapper colour (matches the app's chart palette feel)
-const CHEM_COLORS: Record<string, string> = {
+export const CHEM_COLORS: Record<string, string> = {
   NMC: "#1e5a96",
   NCA: "#b45309",
   LFP: "#0e7490",
@@ -22,7 +22,7 @@ const CHEM_COLORS: Record<string, string> = {
 
 export type IonMode = "idle" | "discharge" | "charge";
 
-function dimsOf(d: CellDesign): { r: number; h: number } {
+export function dimsOf(d: CellDesign): { r: number; h: number } {
   const isPouch = /pouch|prismatic|blade/i.test(d.formFactor || "");
   const dia = d.diameterMm > 0 ? d.diameterMm : isPouch ? (d.thicknessMm > 0 ? 40 : 21) : 21;
   const len = d.lengthMm > 0 ? d.lengthMm : d.heightMm > 0 ? d.heightMm : isPouch ? 90 : 70;

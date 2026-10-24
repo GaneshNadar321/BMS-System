@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -13,14 +13,19 @@ import { useLabStore } from "@/lib/lab/store";
 import { ocvCurve, ocvScaleOf } from "@/lib/lab/engine";
 import { SectionTitle, ChartCard, CHART_COLORS, WizardNav } from "./shared";
 
-// 3D cell viewer — client-only (WebGL), code-split out of the main bundle
+// 3D viewers — client-only (WebGL), code-split out of the main bundle
 const CellViewer3D = dynamic(() => import("./cell-3d").then((m) => m.CellViewer3D), {
   ssr: false,
   loading: () => <div className="h-[340px] rounded-lg border bg-slate-100 animate-pulse" />,
 });
+const PackViewer3D = dynamic(() => import("./pack-3d"), {
+  ssr: false,
+  loading: () => <div className="h-[360px] rounded-lg border bg-slate-100 animate-pulse" />,
+});
 
 export function ModelTab() {
   const { design, updateDesign, pack } = useLabStore();
+  const [view3d, setView3d] = useState<"cell" | "pack">("cell");
 
   // cheap scalar — no memo needed
   const ocvScale = ocvScaleOf(design);
@@ -37,18 +42,35 @@ export function ModelTab() {
         desc="2RC Thevenin equivalent circuit — V = OCV(SOC) − I·R₀ − V_C1 − V_C2. Every parameter is editable."
       />
 
-      {/* 3D cell model */}
+      {/* 3D model — single cell or the finished pack */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Box className="h-4 w-4 text-primary" /> 3D cell model — interactive
-          </CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Box className="h-4 w-4 text-primary" /> 3D {view3d === "cell" ? "cell" : "pack"} model — interactive
+            </CardTitle>
+            <div className="flex items-center gap-1 rounded-md border bg-muted/40 p-0.5" role="group" aria-label="3D view">
+              {(["cell", "pack"] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setView3d(m)}
+                  className={`rounded px-3 py-1 text-[11px] font-semibold capitalize transition-colors ${
+                    view3d === m ? "bg-primary text-white shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {m === "cell" ? "Cell" : "Full pack"}
+                </button>
+              ))}
+            </div>
+          </div>
           <CardDescription>
-            Geometry from your design ({design.formFactor || "cylindrical"}) · cutaway shows the jelly roll · Li⁺ shuttle animates charge / discharge
+            {view3d === "cell"
+              ? `Geometry from your design (${design.formFactor || "cylindrical"}) · cutaway shows the jelly roll · Li⁺ shuttle animates charge / discharge`
+              : `Your finished battery: ${pack.series} group${pack.series === 1 ? "" : "s"} in series × ${pack.parallel} cell${pack.parallel === 1 ? "" : "s"} in parallel with busbars, BMS and enclosure — exactly as configured in Connection`}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <CellViewer3D design={design} />
+          {view3d === "cell" ? <CellViewer3D design={design} /> : <PackViewer3D design={design} series={pack.series} parallel={pack.parallel} />}
         </CardContent>
       </Card>
 
