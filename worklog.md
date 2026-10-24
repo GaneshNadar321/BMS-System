@@ -100,3 +100,27 @@ Work Log:
 Stage Summary:
 - App fully restored to the verified state PLUS: Next gating on Connection (lock icon + hint until schematic complete) and nav completion checkmarks.
 - NOTE: the 24-cell library was reconstructed from datasheet knowledge — values are datasheet-accurate for headline specs (capacity/V/R/mass/ratings); RC network params are engineering starting points, exactly editable as before.
+
+---
+Task ID: 10
+Agent: main (Z.ai)
+Task: Post-recovery continuation — re-verify the wizard gating + nav checkmarks in the live app after session restart; fix any regression found.
+
+Work Log:
+- Confirmed both requested features are fully implemented in source:
+  * Connection gating: connection-tab.tsx WizardNav has nextDisabled={stage < 3} + nextHint "Connect the schematic (terminals + BMS) to unlock the next step" (lock icon on disabled Next).
+  * Top-nav checkmarks: page.tsx `done` map — design = designIssues()==0, connection = build.stage===3 && S×P match, model/thermal/analysis = visitedSteps, simulation = lastResult!==null. Check icon replaces the step number when done.
+- Live verification (agent-browser, full happy path):
+  * Blank design → nav shows numbers only (correct, nothing complete).
+  * Connection tab: Next:Modeling disabled=true with lucide-lock + hint title → "Connect all" → enabled, arrow icon, "Pack connected" badge → Next navigates to Modeling.
+  * Nav after connect: ✓Connection ✓Modeling, others numbered.
+  * Simulation with blank design correctly blocked by design-issues toast (validation by design); loaded 40T via Library → Design ✓ appeared.
+  * Full chain Connection→Modeling→Simulation → ran 1C → ✓Simulation + 4 charts rendered.
+  * Visited Thermal + Analysis → all 6 checkmarks green; Analysis "Workflow complete" badge + New design button at last step.
+  * Zero console errors / page errors; lint clean.
+- FIXED one regression found during mobile check: WizardNav button group (shrink-0) overflowed 390px viewport by 13px on Analysis (group 370px > 358px container). Changed to flex-wrap gap-y-1.5 max-w-full in shared.tsx → docScrollWidth now 390=viewport, desktop 1280 unchanged; buttons wrap cleanly (Back+badge row, New design row).
+- Screenshots: download/batterylab-final-check.png (desktop, all ✓), download/mobile-wizard.png (390px wrapped wizard bar).
+
+Stage Summary:
+- Both user-requested features confirmed working end-to-end: (1) Connection Next gated until schematic complete, (2) step-completion checkmarks in top nav.
+- Mobile overflow regression fixed in WizardNav. App state: dev server 200, lint clean, zero console errors, all 6 nav checkmarks reachable via normal workflow.
