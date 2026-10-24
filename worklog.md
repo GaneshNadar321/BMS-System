@@ -76,3 +76,27 @@ Stage Summary:
 - Key artifacts: src/lib/lab/{engine,store}.ts, src/components/lab/{shared,design-tab,connection-tab,model-tab,simulate-tab,thermal-tab,analysis-tab}.tsx, src/app/api/{designs,simulate,runs}, prisma/schema.prisma (BatteryDesign+TestRun)
 - DB state: 1 design (NMC 21700 EV Cell), 5 demo runs
 - Engine: 2RC ECM + Bernardi thermal + 4 profiles, validated against hand calculations
+
+---
+Task ID: 9
+Agent: main (Z.ai)
+Task: (a) Add wizard gating + nav completion checkmarks; (b) DISASTER RECOVERY — the workspace was reverted to an old snapshot (mid-build, pre-library/copilot/wizard). Rebuilt the full application to the verified state plus the new features.
+
+Work Log:
+- DISCOVERY: all source files were reverted to a pre-library snapshot (store.ts 56 lines, no library.ts, no copilot, old dark theme, old DB schema 19 cols / 1 design / 7 runs). Dev server had also restarted (post-revert) so memory recovery was impossible. No backups found anywhere on disk.
+- RECOVERY SOURCES: full verbatim copies in conversation context (page.tsx, store.ts, connection-tab.tsx, model-tab.tsx, shared.tsx + WizardNav edits) + old snapshot files as pattern reference for the missing middles (simulate/thermal/analysis tabs, design-tab fields) + worklog feature descriptions.
+- REBUILT from scratch:
+  * src/lib/lab/engine.ts — extended: 8 chemistries (NMC/NCA/LFP/LTO/LCO/LeadAcid/NiMH/NiCd) with OCV tables mapped to each design's voltage window, full CellDesign datasheet fields, blankDesign/designIssues/estimateAreaM2/loadedVoltageAtSoc/effectiveCapacityPct/jouleHeatW/tempRiseAdiabatic, custom step-sequence profile in simulate().
+  * src/lib/lab/store.ts — verbatim final (targets/copilot/AI patches) + build (schematic stage) + visitedSteps in store; setActiveTab records visits.
+  * src/lib/lab/library.ts — 24 real datasheet cells / 17 brands / 8 chemistries with 2RC starting points, cellToDesign + getLibraryCell + LIBRARY_CATEGORIES.
+  * src/components/lab/: shared.tsx (WizardNav + nextDisabled/nextHint/Lock), design-tab.tsx (starting-point picker, checklist, identity/electrical/dimensions/materials/temp cards, pack target, KPIs, RealWorldPreview charts, WizardNav with S/P re-sync), connection-tab.tsx (schematic builder, build state from store, WizardNav GATED until stage 3), model/simulate/thermal/analysis tabs (reconstructed + WizardNav), library-tab.tsx (search/categories/cards/dialog + Use in Design), copilot.tsx (floating panel + Apply patch).
+  * src/app/page.tsx — new nav + Library + Copilot + STEP-COMPLETION CHECKMARKS (Check icon replaces number when a step is done: design valid / schematic connected / step visited / run stored).
+  * src/app/api/copilot/route.ts — z-ai-web-dev-sdk copilot with __apply patch protocol. src/app/api/designs/route.ts persists all new fields.
+  * src/app/globals.css — light professional theme restored (white cards, #1e5a96 primary).
+  * prisma/schema.prisma — BatteryDesign extended to 44 columns; db push + generate done (existing data preserved).
+- FIXES during rebuild: missing blankDesign import in library.ts (silent picker failure); zustand v5 getServerSnapshot infinite loop — replaced object selector with primitive selectors in page.tsx.
+- VERIFIED end-to-end (agent-browser): picker loads 40T → design complete badge; targets 48V/10Ah → 13S3P · 39 cells; Connection banner "From your design: 48 V · 10 Ah → 13S3P"; Next:Modeling DISABLED with lock until "Connect all" (gate works); Modeling → Simulation → 1C run = 3.96 Ah throughput (matches pre-revert validated physics); Thermal 1C adiabatic = ΔT +24K WARN (orig +22.2K); Analysis shows 9 runs incl. new ones; all 6 nav checkmarks green; Library Use-in-Design jumps to Design; copilot answered "heat = 8² × 0.011 = 0.704W" from live context; mobile 390px no overflow; zero console errors; lint clean.
+
+Stage Summary:
+- App fully restored to the verified state PLUS: Next gating on Connection (lock icon + hint until schematic complete) and nav completion checkmarks.
+- NOTE: the 24-cell library was reconstructed from datasheet knowledge — values are datasheet-accurate for headline specs (capacity/V/R/mass/ratings); RC network params are engineering starting points, exactly editable as before.

@@ -9,7 +9,7 @@ import { BarChart3, Trash2, Download, RefreshCw } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line,
 } from "recharts";
-import { SectionTitle, StatCard, ChartCard, CHART_COLORS } from "./shared";
+import { SectionTitle, StatCard, ChartCard, CHART_COLORS, WizardNav } from "./shared";
 import { cn } from "@/lib/utils";
 
 interface RunRow {
@@ -26,8 +26,8 @@ interface RunRow {
 }
 
 const PROFILE_COLORS: Record<string, string> = {
-  discharge: CHART_COLORS.emerald,
-  cccv: CHART_COLORS.teal,
+  discharge: CHART_COLORS.blue,
+  cccv: CHART_COLORS.cyan,
   hppc: CHART_COLORS.violet,
   drive: CHART_COLORS.amber,
 };
@@ -99,7 +99,7 @@ export function AnalysisTab() {
         `"${summary.cutoff ?? ""}"`,
       ].join(",")
     );
-    const blob = new Blob([ [head, ...rows].join("\n") ], { type: "text/csv" });
+    const blob = new Blob([[head, ...rows].join("\n")], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -159,7 +159,7 @@ export function AnalysisTab() {
       <SectionTitle
         icon={<BarChart3 className="h-5 w-5" />}
         title="6 · Battery Analysis"
-        desc="Every simulation and thermal test is stored in the database. Compare runs side by side, inspect overlay curves, and export the dataset for your report."
+        desc="Compare stored test runs side by side and export the dataset."
       />
 
       {/* Program KPIs */}
@@ -179,7 +179,7 @@ export function AnalysisTab() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-sm">Test log</CardTitle>
-              <CardDescription>Select up to 4 runs to compare (all runs are auto-saved)</CardDescription>
+              <CardDescription>Select up to 4 runs to compare</CardDescription>
             </div>
             <div className="flex gap-2">
               <Button size="sm" variant="outline" onClick={load}><RefreshCw className="h-3.5 w-3.5 mr-1" /> Refresh</Button>
@@ -194,7 +194,7 @@ export function AnalysisTab() {
             <p className="text-sm text-muted-foreground py-6 text-center">Loading runs…</p>
           ) : runs.length === 0 ? (
             <p className="text-sm text-muted-foreground py-6 text-center">
-              No test runs yet — go to <span className="font-medium">Simulation</span> or <span className="font-medium">Thermal Testing</span> and press Run.
+              No test runs yet — go to <span className="font-medium">Simulation</span> or <span className="font-medium">Thermal</span> and press Run.
             </p>
           ) : (
             <div className="max-h-80 overflow-y-auto rounded-lg border divide-y">
@@ -205,7 +205,7 @@ export function AnalysisTab() {
                     key={row.id}
                     className={cn(
                       "flex items-center gap-3 px-3 py-2.5 text-sm cursor-pointer hover:bg-muted/50",
-                      selected.includes(row.id) && "bg-emerald-500/10"
+                      selected.includes(row.id) && "bg-primary/5"
                     )}
                     onClick={() => toggle(row.id)}
                   >
@@ -214,7 +214,7 @@ export function AnalysisTab() {
                       checked={selected.includes(row.id)}
                       onChange={() => toggle(row.id)}
                       onClick={(e) => e.stopPropagation()}
-                      className="accent-emerald-600"
+                      className="accent-[#1e5a96]"
                       aria-label={`Select ${row.name}`}
                     />
                     <div className="min-w-0 flex-1">
@@ -255,7 +255,7 @@ export function AnalysisTab() {
                   <XAxis dataKey="name" tick={{ fontSize: 10 }} />
                   <YAxis tick={{ fontSize: 11 }} unit=" Wh" />
                   <Tooltip />
-                  <Bar dataKey="energy" name="Pack energy" fill={CHART_COLORS.emerald} radius={[6, 6, 0, 0]} isAnimationActive={false} />
+                  <Bar dataKey="energy" name="Pack energy" fill={CHART_COLORS.blue} radius={[6, 6, 0, 0]} isAnimationActive={false} />
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -321,6 +321,9 @@ export function AnalysisTab() {
           </ChartCard>
         </div>
       )}
+
+      {/* Wizard: Analysis is the final step — restart or go back */}
+      <WizardNav step={5} summary={runs.length > 0 ? `${runs.length} stored run${runs.length === 1 ? "" : "s"} in the database` : "no stored runs yet"} />
     </div>
   );
 }

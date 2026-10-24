@@ -7,17 +7,19 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Play, Loader2, Activity, Download } from "lucide-react";
+import { Play, Loader2, Activity, Download, Plus, Trash2, ArrowUp, ArrowDown, ListPlus, Sparkles } from "lucide-react";
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine,
 } from "recharts";
 import { useLabStore } from "@/lib/lab/store";
-import type { Profile } from "@/lib/lab/engine";
-import { SectionTitle, StatCard, StatusBadge, ChartCard, CHART_COLORS } from "./shared";
+import { designIssues, type Profile, type CustomSegment } from "@/lib/lab/engine";
+import { SectionTitle, StatCard, StatusBadge, ChartCard, CHART_COLORS, WizardNav } from "./shared";
 import { seriesToCsv } from "@/lib/lab/engine";
 
 const PROFILES: { id: Profile; label: string; desc: string; socStart: number }[] = [
+  { id: "custom", label: "My Custom Sequence", desc: "Build your own current steps", socStart: 1 },
   { id: "discharge", label: "CC Discharge", desc: "Constant current down to Vmin", socStart: 1 },
   { id: "cccv", label: "CC-CV Charge", desc: "CC up to Vmax, then voltage taper", socStart: 0.15 },
   { id: "hppc", label: "HPPC Pulses", desc: "10 s pulse / rest / regen — impedance test", socStart: 0.9 },
@@ -25,11 +27,40 @@ const PROFILES: { id: Profile; label: string; desc: string; socStart: number }[]
 ];
 
 export function SimulateTab() {
-  const { design, pack, simParams, setSimParams, lastResult, setLastResult, running, setRunning } = useLabStore();
+  const { design, pack, simParams, setSimParams, lastResult, setLastResult, running, setRunning, sendCopilotMessage, copilotBusy } = useLabStore();
   const { toast } = useToast();
   const [runName, setRunName] = useState("");
 
+  const issues = designIssues(design);
+  const segs = simParams.customSegments;
+  const segTotalS = segs.reduce((a, s) => a + Math.max(0, s.durationS), 0);
+
+  const setSegs = (next: CustomSegment[]) => setSimParams({ customSegments: next.slice(0, 40) });
+  const addSeg = () => setSegs([...segs, { mode: "discharge", currentC: 1, durationS: 300 }]);
+  const updSeg = (i: number, patch: Partial<CustomSegment>) =>
+    setSegs(segs.map((s, j) => (j === i ? { ...s, ...patch } : s)));
+  const delSeg = (i: number) => setSegs(segs.filter((_, j) => j !== i));
+  const moveSeg = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= segs.length) return;
+    const next = [...segs];
+    [next[i], next[j]] = [next[j], next[i]];
+    setSegs(next);
+  };
+
   const run = async () => {
+    if (issues.length > 0) {
+      toast({
+        title: "Complete your cell design first",
+        description: `Missing: ${issues[2] ? issues.slice(0, 3).join("; ") + "…" : issues.join("; ")}`,
+        variant: "destructive",
+      });
+      return;
+    }
+    if (simParams.profile === "custom" && segs.length === 0) {
+      toast({ title: "Empty sequence", description: "Add at least one step to your custom sequence.", variant: "destructive" });
+      return;
+    }
     setRunning(true);
     try {
       const res = await fetch("/api/simulate", {
@@ -77,13 +108,13 @@ export function SimulateTab() {
       />
 
       {/* Profile picker */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {PROFILES.map((p) => (
           <button
             key={p.id}
             onClick={() => setSimParams({ profile: p.id, socStart: p.socStart })}
-            className={`text-left rounded-xl border p-3.5 transition-all hover:shadow-md ${
-              simParams.profile === p.id ? "border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500" : "bg-card"
+            className={`text-left rounded-lg border p-3 transition-all hover:shadow-sm ${
+              simParams.profile === p.id ? "border-primary bg-primary/[0.05] ring-1 ring-primary" : "bg-card"
             }`}
           >
             <div className="font-semibold text-sm">{p.label}</div>
@@ -98,14 +129,14 @@ export function SimulateTab() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Test conditions</CardTitle>
             <CardDescription>
-              {design.name} · {pack.series}S{pack.parallel}P
+              {design.name || "Cell"} · {pack.series}S{pack.parallel}P
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
               <div className="flex justify-between mb-1.5">
                 <Label className="text-xs">C-rate / pulse size</Label>
-                <span className="text-xs font-bold text-emerald-700">{simParams.cRate.toFixed(1)}C</span>
+                <span className="text-xs font-bold text-primary">{simParams.cRate.toFixed(1)}C</span>
               </div>
               <Slider value={[simParams.cRate]} min={0.1} max={10} step={0.1} onValueChange={([v]) => setSimParams({ cRate: v })} />
               <p className="text-[11px] text-muted-foreground mt-1">
@@ -115,14 +146,21 @@ export function SimulateTab() {
             <div>
               <div className="flex justify-between mb-1.5">
                 <Label className="text-xs">Start SOC</Label>
-                <span className="text-xs font-bold text-emerald-700">{(simParams.socStart * 100).toFixed(0)}%</span>
+                <span className="text-xs font-bold text-primary">{(simParams.socStart * 100).toFixed(0)}%</span>
               </div>
               <Slider value={[simParams.socStart * 100]} min={10} max={100} step={5} onValueChange={([v]) => setSimParams({ socStart: v / 100 })} />
             </div>
             <div>
               <div className="flex justify-between mb-1.5">
+                <Label className="text-xs">Ambient temperature</Label>
+                <span className="text-xs font-bold text-primary">{simParams.ambientC}°C</span>
+              </div>
+              <Slider value={[simParams.ambientC]} min={-20} max={60} step={1} onValueChange={([v]) => setSimParams({ ambientC: v })} />
+            </div>
+            <div>
+              <div className="flex justify-between mb-1.5">
                 <Label className="text-xs">Max duration</Label>
-                <span className="text-xs font-bold text-emerald-700">{fmtT(simParams.durationS)}</span>
+                <span className="text-xs font-bold text-primary">{fmtT(simParams.durationS)}</span>
               </div>
               <Slider value={[simParams.durationS]} min={600} max={43200} step={600} onValueChange={([v]) => setSimParams({ durationS: v })} />
             </div>
@@ -130,15 +168,88 @@ export function SimulateTab() {
               <Label className="text-xs text-muted-foreground">Run name (optional)</Label>
               <Input className="mt-1 h-8" placeholder="e.g. Baseline 1C discharge" value={runName} onChange={(e) => setRunName(e.target.value)} />
             </div>
-            <Button onClick={run} disabled={running} className="w-full bg-emerald-600 hover:bg-emerald-700">
+            <Button onClick={run} disabled={running} className="w-full bg-primary hover:bg-primary/90">
               {running ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Play className="h-4 w-4 mr-1.5" />}
               {running ? "Simulating…" : "Run simulation"}
             </Button>
+            <button
+              onClick={() => sendCopilotMessage("Which test profile and C-rate would you run for my design and application? Explain briefly.")}
+              disabled={copilotBusy}
+              className="w-full inline-flex items-center justify-center gap-1.5 rounded-md border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-primary" /> Ask copilot which test to run
+            </button>
           </CardContent>
         </Card>
 
+        {/* Custom sequence builder */}
+        {simParams.profile === "custom" && (
+          <Card className="lg:col-span-2">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-sm">Custom sequence builder</CardTitle>
+                  <CardDescription>Chain discharge / charge / rest steps — total {Math.round(segTotalS / 60)} min</CardDescription>
+                </div>
+                <Button size="sm" variant="outline" onClick={addSeg}>
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Add step
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {segs.length === 0 && (
+                <div className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+                  <ListPlus className="h-5 w-5 mx-auto mb-1.5 text-muted-foreground" />
+                  No steps yet — add a discharge, charge or rest step.
+                </div>
+              )}
+              {segs.map((seg, i) => (
+                <div key={i} className="flex flex-wrap items-center gap-2 rounded-lg border px-2.5 py-2">
+                  <span className="text-[11px] tabular-nums text-muted-foreground w-5">{i + 1}.</span>
+                  <Select value={seg.mode} onValueChange={(v) => updSeg(i, { mode: v as CustomSegment["mode"] })}>
+                    <SelectTrigger className="h-8 w-[120px]" aria-label="Step mode"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="discharge">Discharge</SelectItem>
+                      <SelectItem value="charge">Charge</SelectItem>
+                      <SelectItem value="rest">Rest</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number" min={0} step={0.1} value={seg.currentC}
+                      className="h-8 w-20" aria-label="Step C-rate"
+                      disabled={seg.mode === "rest"}
+                      onChange={(e) => updSeg(i, { currentC: Math.max(0, parseFloat(e.target.value) || 0) })}
+                    />
+                    <span className="text-[11px] text-muted-foreground">C</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number" min={1} step={30} value={seg.durationS}
+                      className="h-8 w-24" aria-label="Step duration in seconds"
+                      onChange={(e) => updSeg(i, { durationS: Math.max(1, parseFloat(e.target.value) || 1) })}
+                    />
+                    <span className="text-[11px] text-muted-foreground">s</span>
+                  </div>
+                  <div className="ml-auto flex items-center gap-0.5">
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => moveSeg(i, -1)} disabled={i === 0} aria-label="Move step up">
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => moveSeg(i, 1)} disabled={i === segs.length - 1} aria-label="Move step down">
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => delSeg(i)} aria-label={`Delete step ${i + 1}`}>
+                      <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Summary */}
-        <Card className="lg:col-span-2">
+        <Card className={simParams.profile === "custom" ? "hidden" : "lg:col-span-2"}>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Result summary</CardTitle>
             <CardDescription>{s ? s.cutoff : "Run a simulation to see results"}</CardDescription>
@@ -180,6 +291,18 @@ export function SimulateTab() {
         </Card>
       </div>
 
+      {/* Custom-profile summary strip */}
+      {simParams.profile === "custom" && s && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card px-4 py-3">
+          <Badge variant="outline" className="text-xs">My Custom Sequence</Badge>
+          <span className="text-sm"><b>{s.capacityAh}</b> Ah · <b>{Math.abs(s.energyWh).toFixed(1)}</b> Wh · peak <b>{s.tempMaxC}</b>°C</span>
+          <span className="text-xs text-muted-foreground">{s.cutoff}</span>
+          <Button size="sm" variant="outline" className="ml-auto" onClick={exportCsv}>
+            <Download className="h-3.5 w-3.5 mr-1" /> Export CSV
+          </Button>
+        </div>
+      )}
+
       {/* Charts */}
       {series.length > 0 && (
         <div className="grid lg:grid-cols-2 gap-4">
@@ -196,8 +319,8 @@ export function SimulateTab() {
                 {simParams.profile !== "discharge" && (
                   <ReferenceLine yAxisId="v" y={design.vmax} stroke={CHART_COLORS.amber} strokeDasharray="4 4" label={{ value: "Vmax", fontSize: 10 }} />
                 )}
-                <Line yAxisId="v" type="monotone" dataKey="vCell" name="Cell V" stroke={CHART_COLORS.emerald} dot={false} strokeWidth={2} />
-                <Line yAxisId="vp" type="monotone" dataKey="vPack" name={`Pack V (${pack.series}S)`} stroke={CHART_COLORS.teal} dot={false} strokeWidth={2} />
+                <Line yAxisId="v" type="monotone" dataKey="vCell" name="Cell V" stroke={CHART_COLORS.blue} dot={false} strokeWidth={2} />
+                <Line yAxisId="vp" type="monotone" dataKey="vPack" name={`Pack V (${pack.series}S)`} stroke={CHART_COLORS.cyan} dot={false} strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
           </ChartCard>
@@ -252,7 +375,7 @@ export function SimulateTab() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Safety & limit checks</CardTitle>
-            <CardDescription>Automatic evaluation against cell datasheet limits and thermal thresholds</CardDescription>
+            <CardDescription>Automatic checks against datasheet limits</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             {lastResult.checks.map((c) => (
@@ -267,6 +390,14 @@ export function SimulateTab() {
           </CardContent>
         </Card>
       )}
+
+      {/* Wizard: Simulation → Thermal carries the profile and its result */}
+      <WizardNav
+        step={3}
+        summary={
+          <>{PROFILES.find((p) => p.id === simParams.profile)?.label ?? simParams.profile} @ {simParams.cRate}C carried into Thermal{lastResult ? <span className="text-emerald-600"> · run result available</span> : null}</>
+        }
+      />
     </div>
   );
 }

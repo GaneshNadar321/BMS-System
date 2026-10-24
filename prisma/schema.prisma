@@ -12,8 +12,18 @@ datasource db {
 model BatteryDesign {
   id           String   @id @default(cuid())
   name         String
-  chemistry    String   // NMC | LFP | LTO | LCO
+  chemistry    String   // NMC | NCA | LFP | LTO | LCO | LeadAcid | NiMH | NiCd
+  brand        String?  // datasheet metadata
+  model        String?
+  formFactor   String?
+  cathode      String?
+  anode        String?
+  separator    String?
+  electrolyte  String?
+  application  String?
+  sourceRef    String?
   capacityAh   Float
+  nominalV     Float?
   vmax         Float
   vmin         Float
   r0           Float // ohmic resistance (Ohm)
@@ -21,12 +31,26 @@ model BatteryDesign {
   c1           Float // polarization capacitance (F)
   r2           Float // diffusion resistance (Ohm)
   c2           Float // diffusion capacitance (F)
+  maxDischargeC Float
+  maxPulseDischargeC Float?
+  maxChargeC   Float
+  stdChargeC   Float?
+  diameterMm   Float?
+  lengthMm     Float?
+  widthMm      Float?
+  heightMm     Float?
+  thicknessMm  Float?
   massKg       Float
   cpJkgK       Float
   areaM2       Float
   entropicVperK Float // dU/dT (V/K)
-  maxDischargeC Float
-  maxChargeC   Float
+  cycleLifeCycles Float?
+  cycleLifeNote String?
+  chargeTempMinC  Float?
+  chargeTempMaxC  Float?
+  dischargeTempMinC Float?
+  dischargeTempMaxC Float?
+  selfDischargePctMonth Float?
   seriesCount  Int
   parallelCount Int
   createdAt    DateTime @default(now())

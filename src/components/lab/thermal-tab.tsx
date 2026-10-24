@@ -6,23 +6,33 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Thermometer, Loader2, Snowflake, Flame, TriangleAlert } from "lucide-react";
+import { Thermometer, Loader2, Snowflake, Flame, TriangleAlert, Sparkles } from "lucide-react";
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine,
 } from "recharts";
 import { useLabStore } from "@/lib/lab/store";
-import { SectionTitle, StatCard, ChartCard, CHART_COLORS, COOLING_PRESETS } from "./shared";
+import { designIssues } from "@/lib/lab/engine";
+import { SectionTitle, StatCard, ChartCard, CHART_COLORS, COOLING_PRESETS, WizardNav } from "./shared";
 import { cn } from "@/lib/utils";
 
 export function ThermalTab() {
-  const { design, pack, simParams, setSimParams, lastResult, setLastResult, running, setRunning } = useLabStore();
+  const { design, pack, simParams, setSimParams, lastResult, setLastResult, running, setRunning, sendCopilotMessage, copilotBusy } = useLabStore();
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
 
+  const issues = designIssues(design);
   const h = simParams.coolingOn ? simParams.hConv : 0;
   const activePreset = COOLING_PRESETS.find((p) => p.h === h);
 
   const runThermal = async () => {
+    if (issues.length > 0) {
+      toast({
+        title: "Complete your cell design first",
+        description: `Missing: ${issues.slice(0, 3).join("; ")}${issues.length > 3 ? "…" : ""}`,
+        variant: "destructive",
+      });
+      return;
+    }
     setBusy(true);
     setRunning(true);
     try {
@@ -69,7 +79,7 @@ export function ThermalTab() {
         {/* Thermal environment */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2"><Snowflake className="h-4 w-4 text-teal-600" /> Cooling environment</CardTitle>
+            <CardTitle className="text-sm flex items-center gap-2"><Snowflake className="h-4 w-4 text-primary" /> Cooling environment</CardTitle>
             <CardDescription>Choose a management strategy or tune h manually</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -82,7 +92,7 @@ export function ThermalTab() {
                   className={cn(
                     "h-auto py-2 flex-col items-start gap-0.5",
                     (p.h === 0 && !simParams.coolingOn) || (p.h > 0 && simParams.coolingOn && simParams.hConv === p.h)
-                      ? "border-emerald-500 bg-emerald-50 text-emerald-800"
+                      ? "border-primary bg-primary/[0.05] text-primary"
                       : ""
                   )}
                   onClick={() =>
@@ -99,7 +109,7 @@ export function ThermalTab() {
             <div>
               <div className="flex justify-between mb-1.5">
                 <Label className="text-xs">Convection coefficient h</Label>
-                <span className="text-xs font-bold text-emerald-700">{h} W/m²K</span>
+                <span className="text-xs font-bold text-primary">{h} W/m²K</span>
               </div>
               <Slider
                 value={[h]}
@@ -112,7 +122,7 @@ export function ThermalTab() {
             <div>
               <div className="flex justify-between mb-1.5">
                 <Label className="text-xs">Ambient temperature</Label>
-                <span className="text-xs font-bold text-emerald-700">{simParams.ambientC}°C</span>
+                <span className="text-xs font-bold text-primary">{simParams.ambientC}°C</span>
               </div>
               <Slider value={[simParams.ambientC]} min={-20} max={60} step={1} onValueChange={([v]) => setSimParams({ ambientC: v })} />
             </div>
@@ -121,10 +131,17 @@ export function ThermalTab() {
               m·Cp·dT/dt = I²R₀ + V²_C1/R₁ + V²_C2/R₂ + I·T·(dU/dT) − h·A·(T − T_amb).
               Limits: charge 0–45°C · discharge ≤ 60°C · runaway onset ≈ 130°C.
             </div>
-            <Button onClick={runThermal} disabled={busy} className="w-full bg-emerald-600 hover:bg-emerald-700">
+            <Button onClick={runThermal} disabled={busy} className="w-full bg-primary hover:bg-primary/90">
               {busy ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Flame className="h-4 w-4 mr-1.5" />}
               {busy ? "Running thermal test…" : "Run 1C thermal test"}
             </Button>
+            <button
+              onClick={() => sendCopilotMessage("Which cooling strategy fits my design and duty? Consider my cell's heat generation and application.")}
+              disabled={copilotBusy}
+              className="w-full inline-flex items-center justify-center gap-1.5 rounded-md border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-primary" /> Ask copilot about cooling
+            </button>
           </CardContent>
         </Card>
 
@@ -178,7 +195,7 @@ export function ThermalTab() {
 
       {/* Thermal charts */}
       {series.length > 0 && (
-        <div className="grid lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <ChartCard title="Cell temperature vs limits">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={series} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
@@ -209,6 +226,14 @@ export function ThermalTab() {
           </ChartCard>
         </div>
       )}
+
+      {/* Wizard: Thermal → Analysis carries the thermal result */}
+      <WizardNav
+        step={4}
+        summary={
+          <>{activePreset?.label ?? (simParams.coolingOn ? `h = ${simParams.hConv} W/m²K` : "adiabatic")} environment{series.length > 0 ? <span className="text-emerald-600"> · thermal result ready for Analysis</span> : null}</>
+        }
+      />
     </div>
   );
 }

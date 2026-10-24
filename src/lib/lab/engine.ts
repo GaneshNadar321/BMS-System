@@ -1,15 +1,28 @@
 // ============================================================
 // BatteryLab — Physics Engine
 // Equivalent Circuit Model (2RC Thevenin) + Bernardi thermal
-// + CC discharge / CC-CV charge / HPPC pulse / drive-cycle profiles
+// + CC discharge / CC-CV charge / HPPC pulse / drive-cycle /
+//   custom step-sequence profiles
 // ============================================================
 
-export type Chemistry = "NMC" | "LFP" | "LTO" | "LCO";
+export type Chemistry = "NMC" | "LFP" | "LTO" | "LCO" | "NCA" | "LeadAcid" | "NiMH" | "NiCd";
 
 export interface CellDesign {
   name: string;
   chemistry: Chemistry;
+  // identity / datasheet metadata
+  brand: string;
+  model: string;
+  formFactor: string;
+  cathode: string;
+  anode: string;
+  separator: string;
+  electrolyte: string;
+  application: string;
+  sourceRef: string;
+  // electrical
   capacityAh: number;
+  nominalV: number;
   vmax: number;
   vmin: number;
   r0: number; // Ohm
@@ -17,12 +30,31 @@ export interface CellDesign {
   c1: number; // F
   r2: number; // Ohm
   c2: number; // F
+  // ratings
+  maxDischargeC: number;
+  maxPulseDischargeC: number;
+  maxChargeC: number;
+  stdChargeC: number;
+  // geometry
+  diameterMm: number;
+  lengthMm: number;
+  widthMm: number;
+  heightMm: number;
+  thicknessMm: number;
+  // thermal
   massKg: number;
   cpJkgK: number;
   areaM2: number;
   entropicVperK: number; // dU/dT V/K
-  maxDischargeC: number;
-  maxChargeC: number;
+  // durability
+  cycleLifeCycles: number;
+  cycleLifeNote: string;
+  // temperature windows
+  chargeTempMinC: number;
+  chargeTempMaxC: number;
+  dischargeTempMinC: number;
+  dischargeTempMaxC: number;
+  selfDischargePctMonth: number;
 }
 
 export interface PackConfig {
@@ -30,7 +62,13 @@ export interface PackConfig {
   parallel: number;
 }
 
-export type Profile = "discharge" | "cccv" | "hppc" | "drive";
+export type Profile = "discharge" | "cccv" | "hppc" | "drive" | "custom";
+
+export interface CustomSegment {
+  mode: "discharge" | "charge" | "rest";
+  currentC: number;
+  durationS: number;
+}
 
 export interface SimParams {
   profile: Profile;
@@ -40,6 +78,7 @@ export interface SimParams {
   hConv: number;
   socStart: number; // 0..1
   coolingOn: boolean;
+  customSegments: CustomSegment[];
 }
 
 export interface SimPoint {
@@ -72,7 +111,7 @@ export interface RunSummary {
   heatWh: number;
   cutoff: string;
   durationS: number;
-  efficiency: number | null; // discharge/charge energy ratio (HPPC)
+  efficiency: number | null; // regen recovery (HPPC / drive)
   packEnergyWh: number;
   packCapacityAh: number;
 }
@@ -84,16 +123,24 @@ export interface SafetyCheck {
 }
 
 // ------------------------------------------------------------
-// OCV–SOC curves (anchor points interpolated linearly)
+// OCV–SOC curves (anchor points interpolated linearly), per
+// chemistry. Mapped onto each design's actual voltage window.
 // ------------------------------------------------------------
 
 const OCV_TABLES: Record<Chemistry, { soc: number; v: number }[]> = {
   NMC: [
     { soc: 0, v: 2.8 }, { soc: 0.02, v: 3.2 }, { soc: 0.05, v: 3.32 },
     { soc: 0.1, v: 3.46 }, { soc: 0.2, v: 3.58 }, { soc: 0.3, v: 3.64 },
-    { soc: 0.4, v: 3.70 }, { soc: 0.5, v: 3.76 }, { soc: 0.6, v: 3.83 },
+    { soc: 0.4, v: 3.7 }, { soc: 0.5, v: 3.76 }, { soc: 0.6, v: 3.83 },
     { soc: 0.7, v: 3.92 }, { soc: 0.8, v: 4.02 }, { soc: 0.9, v: 4.12 },
     { soc: 0.95, v: 4.17 }, { soc: 1, v: 4.21 },
+  ],
+  NCA: [
+    { soc: 0, v: 3.0 }, { soc: 0.05, v: 3.5 }, { soc: 0.1, v: 3.56 },
+    { soc: 0.2, v: 3.62 }, { soc: 0.3, v: 3.66 }, { soc: 0.4, v: 3.7 },
+    { soc: 0.5, v: 3.72 }, { soc: 0.6, v: 3.77 }, { soc: 0.7, v: 3.84 },
+    { soc: 0.8, v: 3.94 }, { soc: 0.9, v: 4.07 }, { soc: 0.95, v: 4.15 },
+    { soc: 1, v: 4.23 },
   ],
   LFP: [
     { soc: 0, v: 2.5 }, { soc: 0.02, v: 2.9 }, { soc: 0.05, v: 3.02 },
@@ -114,9 +161,25 @@ const OCV_TABLES: Record<Chemistry, { soc: number; v: number }[]> = {
     { soc: 0.5, v: 3.85 }, { soc: 0.6, v: 3.9 }, { soc: 0.7, v: 3.95 },
     { soc: 0.8, v: 4.02 }, { soc: 0.9, v: 4.1 }, { soc: 1, v: 4.2 },
   ],
+  LeadAcid: [
+    { soc: 0, v: 1.95 }, { soc: 0.1, v: 2.0 }, { soc: 0.2, v: 2.04 },
+    { soc: 0.4, v: 2.07 }, { soc: 0.6, v: 2.1 }, { soc: 0.8, v: 2.13 },
+    { soc: 1, v: 2.17 },
+  ],
+  NiMH: [
+    { soc: 0, v: 1.18 }, { soc: 0.1, v: 1.24 }, { soc: 0.3, v: 1.27 },
+    { soc: 0.5, v: 1.29 }, { soc: 0.7, v: 1.31 }, { soc: 0.9, v: 1.35 },
+    { soc: 1, v: 1.42 },
+  ],
+  NiCd: [
+    { soc: 0, v: 1.12 }, { soc: 0.1, v: 1.21 }, { soc: 0.3, v: 1.26 },
+    { soc: 0.5, v: 1.28 }, { soc: 0.7, v: 1.3 }, { soc: 0.9, v: 1.34 },
+    { soc: 1, v: 1.38 },
+  ],
 };
 
-export function ocvSoc(chem: Chemistry, soc: number): number {
+// Raw table lookup (chemistry-native voltage window)
+export function ocvSocRaw(chem: Chemistry, soc: number): number {
   const table = OCV_TABLES[chem] ?? OCV_TABLES.NMC;
   const s = Math.min(1, Math.max(0, soc));
   for (let i = 1; i < table.length; i++) {
@@ -130,79 +193,101 @@ export function ocvSoc(chem: Chemistry, soc: number): number {
   return table[table.length - 1].v;
 }
 
-export function ocvCurve(chem: Chemistry): { soc: number; v: number }[] {
+// Map a design's OCV onto its own voltage window (falls back to the
+// chemistry-native window when the design window is unset).
+export function designWindow(d: Pick<CellDesign, "chemistry" | "vmin" | "vmax">): { lo: number; hi: number; rawLo: number; rawHi: number } {
+  const table = OCV_TABLES[d.chemistry] ?? OCV_TABLES.NMC;
+  const rawLo = table[0].v;
+  const rawHi = table[table.length - 1].v;
+  const lo = d.vmin > 0 ? d.vmin : rawLo;
+  const hi = d.vmax > d.vmin && d.vmax > 0 ? d.vmax : rawHi;
+  return { lo, hi, rawLo, rawHi };
+}
+
+export function ocvOfDesign(d: CellDesign, soc: number): number {
+  const { lo, hi, rawLo, rawHi } = designWindow(d);
+  const raw = ocvSocRaw(d.chemistry, soc);
+  if (hi <= lo) return raw;
+  return lo + (raw - rawLo) * ((hi - lo) / (rawHi - rawLo));
+}
+
+// Window descriptor used by chart helpers (OCV vs SOC plot)
+export interface OcvWindow { lo: number; hi: number }
+
+export function ocvScaleOf(d: CellDesign): OcvWindow {
+  const { lo, hi } = designWindow(d);
+  return { lo, hi };
+}
+
+export function ocvCurve(chem: Chemistry, win?: OcvWindow): { soc: number; v: number }[] {
+  const { lo, hi, rawLo, rawHi } = win
+    ? { lo: win.lo, hi: win.hi, ...(() => { const t = OCV_TABLES[chem] ?? OCV_TABLES.NMC; return { rawLo: t[0].v, rawHi: t[t.length - 1].v }; })() }
+    : (() => { const t = OCV_TABLES[chem] ?? OCV_TABLES.NMC; return { lo: t[0].v, hi: t[t.length - 1].v, rawLo: t[0].v, rawHi: t[t.length - 1].v }; })();
   const pts: { soc: number; v: number }[] = [];
-  for (let s = 0; s <= 100; s += 2) pts.push({ soc: s, v: +(ocvSoc(chem, s / 100)).toFixed(3) });
+  for (let s = 0; s <= 100; s += 2) {
+    const raw = ocvSocRaw(chem, s / 100);
+    const v = hi > lo ? lo + (raw - rawLo) * ((hi - lo) / (rawHi - rawLo)) : raw;
+    pts.push({ soc: s, v: +v.toFixed(3) });
+  }
   return pts;
 }
 
 // ------------------------------------------------------------
-// Chemistry presets
+// Blank / validity — the user starts from an empty sheet and
+// fills every datasheet value themselves (or loads one cell).
 // ------------------------------------------------------------
 
-export interface ChemPreset {
-  chemistry: Chemistry;
-  label: string;
-  desc: string;
-  nominalV: number;
-  capacityAh: number;
-  vmax: number;
-  vmin: number;
-  r0: number;
-  r1: number;
-  c1: number;
-  r2: number;
-  c2: number;
-  massKg: number;
-  cpJkgK: number;
-  areaM2: number;
-  entropicVperK: number;
-  maxDischargeC: number;
-  maxChargeC: number;
+export function blankDesign(): CellDesign {
+  return {
+    name: "",
+    chemistry: "NMC",
+    brand: "", model: "", formFactor: "Custom",
+    cathode: "", anode: "", separator: "", electrolyte: "",
+    application: "", sourceRef: "",
+    capacityAh: 0, nominalV: 0, vmax: 0, vmin: 0,
+    r0: 0, r1: 0, c1: 0, r2: 0, c2: 0,
+    maxDischargeC: 0, maxPulseDischargeC: 0, maxChargeC: 0, stdChargeC: 0,
+    diameterMm: 0, lengthMm: 0, widthMm: 0, heightMm: 0, thicknessMm: 0,
+    massKg: 0, cpJkgK: 0, areaM2: 0, entropicVperK: 0,
+    cycleLifeCycles: 0, cycleLifeNote: "",
+    chargeTempMinC: 0, chargeTempMaxC: 0,
+    dischargeTempMinC: 0, dischargeTempMaxC: 0,
+    selfDischargePctMonth: 0,
+  };
 }
 
-export const CHEM_PRESETS: ChemPreset[] = [
-  {
-    chemistry: "NMC", label: "NMC 21700 (EV)", desc: "High energy, EV traction cell",
-    nominalV: 3.65, capacityAh: 4.8, vmax: 4.2, vmin: 2.8,
-    r0: 0.018, r1: 0.008, c1: 2400, r2: 0.006, c2: 18000,
-    massKg: 0.070, cpJkgK: 1000, areaM2: 0.043, entropicVperK: 0.00015,
-    maxDischargeC: 8, maxChargeC: 2,
-  },
-  {
-    chemistry: "LFP", label: "LFP Prismatic (Storage)", desc: "Safe, long cycle life, flat curve",
-    nominalV: 3.2, capacityAh: 100, vmax: 3.65, vmin: 2.5,
-    r0: 0.0009, r1: 0.0004, c1: 60000, r2: 0.0003, c2: 450000,
-    massKg: 1.95, cpJkgK: 1150, areaM2: 0.122, entropicVperK: 0.0001,
-    maxDischargeC: 3, maxChargeC: 1,
-  },
-  {
-    chemistry: "LTO", label: "LTO Cell (Power)", desc: "Ultra-fast charge, wide temp",
-    nominalV: 2.3, capacityAh: 10, vmax: 2.7, vmin: 1.5,
-    r0: 0.0035, r1: 0.0012, c1: 8000, r2: 0.0009, c2: 60000,
-    massKg: 0.36, cpJkgK: 900, areaM2: 0.064, entropicVperK: 0.00005,
-    maxDischargeC: 10, maxChargeC: 10,
-  },
-  {
-    chemistry: "LCO", label: "LCO Pouch (Consumer)", desc: "Compact consumer electronics",
-    nominalV: 3.7, capacityAh: 3.0, vmax: 4.2, vmin: 3.0,
-    r0: 0.045, r1: 0.015, c1: 1800, r2: 0.010, c2: 14000,
-    massKg: 0.048, cpJkgK: 1050, areaM2: 0.032, entropicVperK: 0.0002,
-    maxDischargeC: 2, maxChargeC: 1,
-  },
-];
+export function designIssues(d: CellDesign): string[] {
+  const issues: string[] = [];
+  if (!d.name.trim()) issues.push("design name");
+  if (!(d.capacityAh > 0)) issues.push("capacity (Ah)");
+  if (!(d.nominalV > 0)) issues.push("nominal voltage");
+  if (!(d.vmax > 0)) issues.push("V max");
+  if (!(d.vmin > 0)) issues.push("V min");
+  if (d.vmax > 0 && d.vmin > 0 && d.vmax <= d.vmin) issues.push("V max must exceed V min");
+  if (!(d.r0 > 0)) issues.push("R₀ (mΩ)");
+  if (!(d.massKg > 0)) issues.push("mass (kg)");
+  if (!(d.cpJkgK > 0)) issues.push("Cp (J/kg·K)");
+  if (!(d.areaM2 > 0)) issues.push("surface area");
+  if (!(d.maxDischargeC > 0)) issues.push("max discharge C-rate");
+  if (!(d.maxChargeC > 0)) issues.push("max charge C-rate");
+  return issues;
+}
 
-export function defaultDesign(): CellDesign {
-  const p = CHEM_PRESETS[0];
-  return {
-    name: "My NMC Cell",
-    chemistry: p.chemistry,
-    capacityAh: p.capacityAh, vmax: p.vmax, vmin: p.vmin,
-    r0: p.r0, r1: p.r1, c1: p.c1, r2: p.r2, c2: p.c2,
-    massKg: p.massKg, cpJkgK: p.cpJkgK, areaM2: p.areaM2,
-    entropicVperK: p.entropicVperK,
-    maxDischargeC: p.maxDischargeC, maxChargeC: p.maxChargeC,
-  };
+// Surface area estimated from the datasheet geometry (falls back to a
+// 21700-class area when dimensions are missing).
+export function estimateAreaM2(d: CellDesign): number {
+  const ff = d.formFactor.toLowerCase();
+  if (d.diameterMm > 0 && (d.lengthMm > 0 || d.heightMm > 0)) {
+    const r = d.diameterMm / 2000; // m
+    const len = (d.lengthMm > 0 ? d.lengthMm : d.heightMm) / 1000;
+    return +(2 * Math.PI * r * r + 2 * Math.PI * r * len).toFixed(5);
+  }
+  if (d.widthMm > 0 && d.heightMm > 0 && d.thicknessMm > 0) {
+    const w = d.widthMm / 1000, h = d.heightMm / 1000, t = d.thicknessMm / 1000;
+    return +(2 * (w * h + w * t + h * t)).toFixed(5);
+  }
+  if (ff.includes("coin") || ff.includes("button")) return 4.2e-4;
+  return 0.045;
 }
 
 // ------------------------------------------------------------
@@ -226,7 +311,7 @@ export interface PackMath {
 }
 
 export function packMath(d: CellDesign, p: PackConfig): PackMath {
-  const nomV = (d.vmax + d.vmin) / 2 + 0.05; // approx nominal from window
+  const nomV = d.nominalV > 0 ? d.nominalV : (d.vmax + d.vmin) / 2 + 0.05;
   const cellCount = p.series * p.parallel;
   const packMassKg = cellCount * d.massKg * 1.25; // 25% structure/BMS overhead
   const r0Pack = (d.r0 * p.series) / p.parallel;
@@ -244,8 +329,44 @@ export function packMath(d: CellDesign, p: PackConfig): PackMath {
     cellCount,
     packMassKg: +packMassKg.toFixed(2),
     iCellAt1C: +iCellAt1C.toFixed(2),
-    maxContPowerW: +(nomV * p.series * d.capacityAh * p.parallel * Math.min(d.maxDischargeC, 10)).toFixed(0),
+    maxContPowerW: +(nomV * p.series * d.capacityAh * p.parallel * Math.min(d.maxDischargeC || 2, 10)).toFixed(0),
   };
+}
+
+// ------------------------------------------------------------
+// Real-world helpers (voltage sag / usable capacity / heat)
+// ------------------------------------------------------------
+
+// Loaded (terminal) voltage at a given SOC and C-rate — ohmic sag only.
+export function loadedVoltageAtSoc(d: CellDesign, soc: number, cRate: number): number {
+  const i = cRate * Math.max(0, d.capacityAh);
+  return ocvOfDesign(d, soc) - i * d.r0;
+}
+
+// Usable capacity (%) before the loaded voltage hits Vmin at a C-rate.
+export function effectiveCapacityPct(d: CellDesign, cRate: number): number | null {
+  if (!(d.capacityAh > 0) || !(d.r0 > 0) || !(d.vmin > 0)) return null;
+  if (loadedVoltageAtSoc(d, 1, cRate) < d.vmin) return 0;
+  let lo = 0, hi = 1;
+  for (let k = 0; k < 24; k++) {
+    const mid = (lo + hi) / 2;
+    if (loadedVoltageAtSoc(d, mid, cRate) >= d.vmin) lo = mid;
+    else hi = mid;
+  }
+  return +(lo * 100).toFixed(1);
+}
+
+// Joule heat at a C-rate (W per cell, ohmic term)
+export function jouleHeatW(d: CellDesign, cRate: number): number {
+  const i = cRate * Math.max(0, d.capacityAh);
+  return +(i * i * d.r0).toFixed(2);
+}
+
+// Adiabatic temperature rise after `seconds` at a C-rate (K)
+export function tempRiseAdiabatic(d: CellDesign, cRate: number, seconds: number): number {
+  if (!(d.massKg > 0) || !(d.cpJkgK > 0)) return 0;
+  const q = jouleHeatW(d, cRate) + cRate * Math.max(0, d.capacityAh) * 298 * (d.entropicVperK || 0.0001);
+  return +(Math.max(0, q) * seconds / (d.massKg * d.cpJkgK)).toFixed(1);
 }
 
 // ------------------------------------------------------------
@@ -261,6 +382,23 @@ function buildSegments(params: SimParams, d: CellDesign): Segment[] {
       return [{ until: null, current: params.cRate * i1C, mode: "CC discharge" }];
     case "cccv":
       return [{ until: null, current: -params.cRate * i1C, mode: "CC charge" }];
+    case "custom": {
+      const segs: Segment[] = [];
+      let t = 0;
+      for (const s of params.customSegments) {
+        const dur = Math.max(1, s.durationS);
+        if (s.mode === "rest") {
+          segs.push({ until: t + dur, current: 0, mode: "Rest" });
+        } else if (s.mode === "charge") {
+          segs.push({ until: t + dur, current: -Math.abs(s.currentC) * i1C, mode: `Charge ${Math.abs(s.currentC)}C` });
+        } else {
+          segs.push({ until: t + dur, current: Math.abs(s.currentC) * i1C, mode: `Discharge ${Math.abs(s.currentC)}C` });
+        }
+        t += dur;
+      }
+      segs.push({ until: null, current: 0, mode: "Rest" });
+      return segs.length > 1 ? segs : [{ until: null, current: params.cRate * i1C, mode: "CC discharge" }];
+    }
     case "hppc": {
       const segs: Segment[] = [];
       let t = 0;
@@ -304,6 +442,7 @@ export function simulate(d: CellDesign, pack: PackConfig, params: SimParams): Si
   const dt = 1; // s
   const T0 = params.ambientC;
   const cooling = params.coolingOn ? params.hConv : 0;
+  const entropic = d.entropicVperK || 0.0001;
 
   let soc = Math.min(1, Math.max(0.02, params.socStart));
   let vc1 = 0, vc2 = 0;
@@ -335,7 +474,7 @@ export function simulate(d: CellDesign, pack: PackConfig, params: SimParams): Si
     let i = segments[segIdx].current;
     let mode = segments[segIdx].mode;
 
-    const ocv = ocvSoc(d.chemistry, soc);
+    const ocv = ocvOfDesign(d, soc);
     // terminal voltage with discharge-positive current: V = OCV − I·R0 − Vc1 − Vc2
     const vtPre = ocv - i * d.r0 - vc1 - vc2;
     if (params.profile === "cccv" && !cvMode && vtPre >= d.vmax) {
@@ -359,11 +498,11 @@ export function simulate(d: CellDesign, pack: PackConfig, params: SimParams): Si
     vc1 = vc1 + dv1;
     vc2 = vc2 + dv2;
     soc = soc - (i * dt) / (3600 * d.capacityAh);
-    const vCell = ocvSoc(d.chemistry, soc) - i * d.r0 - vc1 - vc2;
+    const vCell = ocvOfDesign(d, soc) - i * d.r0 - vc1 - vc2;
 
     const TK = tempC + 273.15;
     const qJoule = (i * i * d.r0) + (vc1 * vc1) / d.r1 + (vc2 * vc2) / d.r2;
-    const qRev = i * TK * d.entropicVperK;
+    const qRev = i * TK * entropic;
     const qGen = qJoule + qRev;
     const qLoss = cooling * d.areaM2 * (tempC - T0);
     tempC += ((qGen - qLoss) / (d.massKg * d.cpJkgK)) * dt;
@@ -484,6 +623,21 @@ function safetyChecks(d: CellDesign, pack: PackConfig, params: SimParams, s: Run
     });
   } else {
     checks.push({ label: "Temperature in safe band", status: "ok", detail: `Peak ${s.tempMaxC}°C (limit 45/60°C)` });
+  }
+
+  // Datasheet charge/discharge temperature window
+  if (d.chargeTempMaxC > 0 && s.tempMaxC > d.chargeTempMaxC && params.profile === "cccv") {
+    checks.push({
+      label: "Charge temperature window",
+      status: "fail",
+      detail: `Charging at ${s.tempMaxC.toFixed(0)}°C > datasheet max ${d.chargeTempMaxC}°C — lithium plating risk`,
+    });
+  } else if (d.chargeTempMaxC > 0 && params.profile === "cccv") {
+    checks.push({
+      label: "Charge temperature window",
+      status: "ok",
+      detail: `${s.tempMaxC.toFixed(0)}°C within ${d.chargeTempMinC}–${d.chargeTempMaxC}°C`,
+    });
   }
 
   if (!params.coolingOn) {
