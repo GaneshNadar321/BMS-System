@@ -1,16 +1,23 @@
 "use client";
 
 import { useMemo } from "react";
+import dynamic from "next/dynamic";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Microscope } from "lucide-react";
+import { Microscope, Box } from "lucide-react";
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from "recharts";
 import { useLabStore } from "@/lib/lab/store";
 import { ocvCurve, ocvScaleOf } from "@/lib/lab/engine";
 import { SectionTitle, ChartCard, CHART_COLORS, WizardNav } from "./shared";
+
+// 3D cell viewer — client-only (WebGL), code-split out of the main bundle
+const CellViewer3D = dynamic(() => import("./cell-3d").then((m) => m.CellViewer3D), {
+  ssr: false,
+  loading: () => <div className="h-[340px] rounded-lg border bg-slate-100 animate-pulse" />,
+});
 
 export function ModelTab() {
   const { design, updateDesign, pack } = useLabStore();
@@ -29,6 +36,21 @@ export function ModelTab() {
         title="3 · Battery Modeling"
         desc="2RC Thevenin equivalent circuit — V = OCV(SOC) − I·R₀ − V_C1 − V_C2. Every parameter is editable."
       />
+
+      {/* 3D cell model */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Box className="h-4 w-4 text-primary" /> 3D cell model — interactive
+          </CardTitle>
+          <CardDescription>
+            Geometry from your design ({design.formFactor || "cylindrical"}) · cutaway shows the jelly roll · Li⁺ shuttle animates charge / discharge
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CellViewer3D design={design} />
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Circuit diagram (SVG) */}

@@ -124,3 +124,34 @@ Work Log:
 Stage Summary:
 - Both user-requested features confirmed working end-to-end: (1) Connection Next gated until schematic complete, (2) step-completion checkmarks in top nav.
 - Mobile overflow regression fixed in WizardNav. App state: dev server 200, lint clean, zero console errors, all 6 nav checkmarks reachable via normal workflow.
+
+---
+Task ID: 11
+Agent: main (Z.ai)
+Task: Visual upgrade per user request — "IN MODELING I WANT THAT IN 3D AND THE SIMULATION SHOULD BE LIKE ANIMATED LIKE REAL WORLD AND THE THERMAL SHOULD LIKE SIMULINK SIMULATION AND WITH GRAPHS".
+
+Work Log:
+- Installed three@0.186.1 + @react-three/fiber + @react-three/drei (+ @types/three).
+- NEW src/components/lab/cell-3d.tsx — interactive 3D cell (Modeling tab, dynamic ssr:false):
+  * 21700-style cylinder scaled from design dims (diameterMm/lengthMm, pouch fallback), steel can + chemistry-coloured wrapper (8-chemistry colour map), + terminal with vent cap, ContactShadows.
+  * Cutaway toggle: semi-transparent can/wrapper reveals jelly roll (cathode Al/separator PE-PP/anode Cu nested cylinders, depthWrite false for correct blending).
+  * Li⁺ shuttle animation: 18 emissive particles spiral between electrodes; Idle/Discharging/Charging segmented control flips direction; OrbitControls auto-rotate + orbit/zoom.
+  * drei Html part labels (+ terminal·vent CID, cathode, separator, anode, steel can) + HTML legend row + dims/mass watermark chips.
+- NEW src/components/lab/sim-bench.tsx — animated real-world test bench (Simulation tab):
+  * Playback engine moved into simulate-tab (posRef + RAF, re-render only on integer index change; new result auto-rewinds and plays; whole test ≈ 40 s at 1×).
+  * Controls: play/pause, restart, 0.5×/1×/2×/4×, scrubber slider, clock readout, "Charts: follow playback" toggle (charts slice series to playback position when on).
+  * SVG bench: BATTERYLAB cycler instrument (dark screen V/I readout, mode, LEDs, knobs, elapsed clock) → red/black wires with SMIL animateMotion electron dots (speed ∝ |I|, direction by charge/discharge) → cell fixture with SOC liquid fill (colour emerald→amber→red), terminal, heat glow ellipse (opacity ∝ T) → cooling fan (SMIL rotate, dur ∝ hConv) + animated airflow dashes when coolingOn → 4 gauge cards (V with vmin..vmax bar, I, SOC, T with colour coding) → progress bar.
+  * FIX: engine soc is 0–100 (not 0–1) — normalized in bench ("5192%" bug).
+- NEW src/components/lab/thermal-blocks.tsx — Simulink-style thermal diagram (Thermal tab):
+  * Blocks on dotted canvas: I (cycler) → Q̇ Bernardi (I²·R₀+I·T·dU/dT) → sum(+,−) → 1/(m·Cp) integrator (Cth + τ labels) → T_cell → dark scope (green trace, 45/60°C dashed limit lines, live pulsing end dot, axis labels) → Display block (end temp); feedback loop T → sum2(T−T_amb) → h·A gain → sum1(−) with orthogonal Simulink wires, arrowheads, junction dots, animated teal signal dots (SMIL).
+  * Values live-react to cooling sliders (verified: τ ∞→358 s, h·A·ΔT 0→4.61 W on Forced air click). Scope plays last run's tempC when available; analytic first-order preview (with 130°C runaway clamp) before any run. Legend strip: Q, m·Cp, h·A, steady-state ΔT (or K/h adiabatic).
+  * Thermal charts renamed "Scope — cell temperature vs limits" / "Scope — heat generation rate (Bernardi)".
+- Integration: model-tab (3D card on top), simulate-tab (bench card + viewSeries chart sync), thermal-tab (diagram card), api/simulate route now maps ALL 44 CellDesign fields from saved rows (fixed pre-existing tsc error).
+- DEBUGGED: (1) Ions crashed fiber loop — seeds[i] undefined because group.children included the Html label; fixed with explicit mesh refs ("Cannot read properties of undefined (reading 'phase')"). (2) 56× "Attempted to synchronously unmount a root while React was already rendering" + dead render loop with fiber 9.8.2 + drei 10.7.9 Html — confirmed as pmndrs/drei#2867; downgraded @react-three/fiber to 9.7.0 → 0 issues, loop alive. (3) SOC scale bug above. (4) ⌀ watermark showed radius → fixed to diameter. (5) Mobile 390px: 16px overflow from long nowrap badge on Thermal → shortened + whitespace-normal → 390 clean; modeling/simulation 390 clean.
+- VERIFIED (agent-browser): 3D renders with labels/ions/spin, 0 console errors on clean Modeling→Simulation→Thermal pass; 40T run → bench auto-plays (SOC cell text matches gauge: 80% / 80.3%), charts follow playback; thermal scope shows last run (49.0°C end, 0–3560 s) + live wire values; lint clean; tsc src/ clean; all checkmark nav states intact.
+
+Stage Summary:
+- Modeling tab now has an interactive 3D cell (cutaway + Li⁺ shuttle + auto-rotate) above the 2RC circuit and OCV chart.
+- Simulation tab replays every run as an animated real-world test bench (cycler, electron flow, SOC liquid cell, heat glow, fan, gauges) with playback controls and chart sync.
+- Thermal tab has a Simulink-style block diagram with animated signal flow, live values, scope of the last run, plus the existing limit graphs.
+- Known dep pin: @react-three/fiber 9.7.0 (do not bump to 9.8.x until drei #2867 fix lands).

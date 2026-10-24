@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -14,9 +14,10 @@ import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine,
 } from "recharts";
 import { useLabStore } from "@/lib/lab/store";
-import { designIssues, type Profile, type CustomSegment } from "@/lib/lab/engine";
+import { designIssues, type Profile, type CustomSegment, type SimPoint } from "@/lib/lab/engine";
 import { SectionTitle, StatCard, StatusBadge, ChartCard, CHART_COLORS, WizardNav } from "./shared";
 import { seriesToCsv } from "@/lib/lab/engine";
+import { SimBench } from "./sim-bench";
 
 const PROFILES: { id: Profile; label: string; desc: string; socStart: number }[] = [
   { id: "custom", label: "My Custom Sequence", desc: "Build your own current steps", socStart: 1 },
@@ -30,6 +31,57 @@ export function SimulateTab() {
   const { design, pack, simParams, setSimParams, lastResult, setLastResult, running, setRunning, sendCopilotMessage, copilotBusy } = useLabStore();
   const { toast } = useToast();
   const [runName, setRunName] = useState("");
+
+  // ---- playback state: the recorded test replays like a live bench ----
+  const series = lastResult?.series ?? [];
+  const [tick, setTick] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [speed, setSpeed] = useState(1);
+  const [syncCharts, setSyncCharts] = useState(true);
+  const posRef = useRef(0);
+  const playingRef = useRef(false);
+  const speedRef = useRef(1);
+  playingRef.current = playing;
+  speedRef.current = speed;
+
+  // new result → rewind and auto-play
+  useEffect(() => {
+    posRef.current = 0;
+    setTick(0);
+    setPlaying(series.length > 1);
+  }, [series]);
+
+  // RAF advance — re-render only when the integer index changes
+  useEffect(() => {
+    if (series.length < 2) return;
+    let raf = 0;
+    let last = performance.now();
+    let lastTick = -1;
+    const loop = (now: number) => {
+      const dt = Math.min(0.1, (now - last) / 1000);
+      last = now;
+      if (playingRef.current) {
+        posRef.current += dt * speedRef.current * (series.length / 40); // whole test ≈ 40 s at 1×
+        if (posRef.current >= series.length - 1) {
+          posRef.current = series.length - 1;
+          setPlaying(false);
+        }
+        const t = Math.floor(posRef.current);
+        if (t !== lastTick) {
+          lastTick = t;
+          setTick(t);
+        }
+      }
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [series.length]);
+
+  const cur: SimPoint = series[Math.min(tick, Math.max(0, series.length - 1))] ?? {
+    t: 0, vCell: 0, vPack: 0, soc: 1, iCell: 0, tempC: simParams.ambientC, qGen: 0, ocv: 0, mode: "rest",
+  };
+  const viewSeries = syncCharts ? series.slice(0, tick + 1) : series;
 
   const issues = designIssues(design);
   const segs = simParams.customSegments;
@@ -96,7 +148,6 @@ export function SimulateTab() {
   };
 
   const s = lastResult?.summary;
-  const series = lastResult?.series ?? [];
   const fmtT = (v: number) => (v >= 3600 ? `${(v / 3600).toFixed(1)} h` : `${Math.round(v / 60)} min`);
 
   return (
@@ -303,12 +354,52 @@ export function SimulateTab() {
         </div>
       )}
 
+      {/* Animated live test bench — replays the recorded run like a real cycler */}
+      {series.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Live test bench — animated playback</CardTitle>
+            <CardDescription>
+              Your run replayed as a real test: cycler → cell → gauges. Play, scrub, change speed — charts follow along.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <SimBench
+              series={series}
+              cur={cur}
+              tick={tick}
+              playing={playing}
+              speed={speed}
+              syncCharts={syncCharts}
+              design={design}
+              pack={pack}
+              coolingOn={simParams.coolingOn}
+              hConv={simParams.hConv}
+              ambientC={simParams.ambientC}
+              onPlayPause={() => setPlaying((p) => !p)}
+              onRestart={() => {
+                posRef.current = 0;
+                setTick(0);
+                setPlaying(true);
+              }}
+              onSpeed={setSpeed}
+              onScrub={(v) => {
+                posRef.current = v;
+                setTick(v);
+                setPlaying(false);
+              }}
+              onSyncToggle={() => setSyncCharts((v) => !v)}
+            />
+          </CardContent>
+        </Card>
+      )}
+
       {/* Charts */}
       {series.length > 0 && (
         <div className="grid lg:grid-cols-2 gap-4">
           <ChartCard title="Cell & pack voltage">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={series} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+              <LineChart data={viewSeries} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="t" tick={{ fontSize: 11 }} unit=" s" />
                 <YAxis yAxisId="v" tick={{ fontSize: 11 }} domain={["auto", "auto"]} />
@@ -327,7 +418,7 @@ export function SimulateTab() {
 
           <ChartCard title="State of charge">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={series} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+              <LineChart data={viewSeries} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="t" tick={{ fontSize: 11 }} unit=" s" />
                 <YAxis tick={{ fontSize: 11 }} unit="%" domain={[0, 100]} />
@@ -340,7 +431,7 @@ export function SimulateTab() {
 
           <ChartCard title="Current profile">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={series} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+              <LineChart data={viewSeries} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="t" tick={{ fontSize: 11 }} unit=" s" />
                 <YAxis tick={{ fontSize: 11 }} unit=" A" />
@@ -353,7 +444,7 @@ export function SimulateTab() {
 
           <ChartCard title="Temperature & heat generation">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={series} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+              <LineChart data={viewSeries} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="t" tick={{ fontSize: 11 }} unit=" s" />
                 <YAxis yAxisId="t" tick={{ fontSize: 11 }} domain={["auto", "auto"]} unit="°C" />

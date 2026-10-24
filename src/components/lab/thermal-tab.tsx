@@ -13,6 +13,7 @@ import {
 import { useLabStore } from "@/lib/lab/store";
 import { designIssues } from "@/lib/lab/engine";
 import { SectionTitle, StatCard, ChartCard, CHART_COLORS, COOLING_PRESETS, WizardNav } from "./shared";
+import { ThermalBlocks } from "./thermal-blocks";
 import { cn } from "@/lib/utils";
 
 export function ThermalTab() {
@@ -193,10 +194,30 @@ export function ThermalTab() {
         </Card>
       </div>
 
+      {/* Simulink-style thermal model — live values follow the sliders */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Thermal simulation — block diagram (Simulink-style)</CardTitle>
+          <CardDescription>
+            Heat source → thermal mass integrator → convection feedback, drawn like a Simulink sheet. Signal values react live to the cooling settings; the scope replays your latest thermal test (analytic preview before the first run).
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ThermalBlocks
+            design={design}
+            ambientC={simParams.ambientC}
+            hConv={simParams.hConv}
+            coolingOn={simParams.coolingOn}
+            cRate={Math.max(1, simParams.cRate)}
+            series={series}
+          />
+        </CardContent>
+      </Card>
+
       {/* Thermal charts */}
       {series.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <ChartCard title="Cell temperature vs limits">
+          <ChartCard title="Scope — cell temperature vs limits">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={series} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -212,7 +233,7 @@ export function ThermalTab() {
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="Heat generation rate (Bernardi)">
+          <ChartCard title="Scope — heat generation rate (Bernardi)">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={series} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />

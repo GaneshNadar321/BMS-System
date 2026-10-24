@@ -16,10 +16,21 @@ export async function POST(req: NextRequest) {
       if (!saved) return NextResponse.json({ error: "Design not found" }, { status: 404 });
       design = {
         name: saved.name, chemistry: saved.chemistry as Chemistry,
-        capacityAh: saved.capacityAh, vmax: saved.vmax, vmin: saved.vmin,
+        brand: saved.brand ?? "", model: saved.model ?? "", formFactor: saved.formFactor ?? "",
+        cathode: saved.cathode ?? "", anode: saved.anode ?? "", separator: saved.separator ?? "",
+        electrolyte: saved.electrolyte ?? "", application: saved.application ?? "", sourceRef: saved.sourceRef ?? "",
+        capacityAh: saved.capacityAh, nominalV: saved.nominalV ?? 0, vmax: saved.vmax, vmin: saved.vmin,
         r0: saved.r0, r1: saved.r1, c1: saved.c1, r2: saved.r2, c2: saved.c2,
+        maxDischargeC: saved.maxDischargeC, maxPulseDischargeC: saved.maxPulseDischargeC ?? saved.maxDischargeC,
+        maxChargeC: saved.maxChargeC, stdChargeC: saved.stdChargeC ?? saved.maxChargeC * 0.5,
+        diameterMm: saved.diameterMm ?? 0, lengthMm: saved.lengthMm ?? 0, widthMm: saved.widthMm ?? 0,
+        heightMm: saved.heightMm ?? 0, thicknessMm: saved.thicknessMm ?? 0,
         massKg: saved.massKg, cpJkgK: saved.cpJkgK, areaM2: saved.areaM2,
-        entropicVperK: saved.entropicVperK, maxDischargeC: saved.maxDischargeC, maxChargeC: saved.maxChargeC,
+        entropicVperK: saved.entropicVperK,
+        cycleLifeCycles: saved.cycleLifeCycles ?? 0, cycleLifeNote: saved.cycleLifeNote ?? "",
+        chargeTempMinC: saved.chargeTempMinC ?? 0, chargeTempMaxC: saved.chargeTempMaxC ?? 45,
+        dischargeTempMinC: saved.dischargeTempMinC ?? -20, dischargeTempMaxC: saved.dischargeTempMaxC ?? 60,
+        selfDischargePctMonth: saved.selfDischargePctMonth ?? 0,
       };
       pack = { series: saved.seriesCount, parallel: saved.parallelCount };
     }
