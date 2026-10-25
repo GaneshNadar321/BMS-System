@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
       where: designId ? { designId } : undefined,
       orderBy: { createdAt: "desc" },
       take: 50,
-      include: { design: { select: { name: true, chemistry: true, capacityAh: true, seriesCount: true, parallelCount: true } } },
+      include: { design: true }, // full design row — Analysis renders the 3D final pack from it
     });
     return NextResponse.json({ runs });
   } catch (e) {

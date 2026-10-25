@@ -69,15 +69,33 @@ export async function POST(req: NextRequest) {
         if (existing) {
           designId = existing.id;
         } else {
+          // persist EVERY design field (was 14 — nominalV/dims/materials/temps were
+          // lost, breaking downstream 3D renders and pack stats read back from runs)
+          const st = (v: string | undefined) => (v && v.trim() ? v.trim().slice(0, 200) : null);
+          const num = (v: number | undefined) => {
+            const x = Number(v);
+            return Number.isFinite(x) && x !== 0 ? x : null;
+          };
           const auto = await db.batteryDesign.create({
             data: {
               name: design.name,
               chemistry: design.chemistry,
+              brand: st(design.brand), model: st(design.model), formFactor: st(design.formFactor),
+              cathode: st(design.cathode), anode: st(design.anode), separator: st(design.separator),
+              electrolyte: st(design.electrolyte), application: st(design.application), sourceRef: st(design.sourceRef),
               capacityAh: design.capacityAh, vmax: design.vmax, vmin: design.vmin,
+              nominalV: num(design.nominalV),
               r0: design.r0, r1: design.r1 ?? 0, c1: design.c1 ?? 0, r2: design.r2 ?? 0, c2: design.c2 ?? 0,
+              maxDischargeC: design.maxDischargeC ?? 2, maxPulseDischargeC: num(design.maxPulseDischargeC),
+              maxChargeC: design.maxChargeC ?? 1, stdChargeC: num(design.stdChargeC),
+              diameterMm: num(design.diameterMm), lengthMm: num(design.lengthMm),
+              widthMm: num(design.widthMm), heightMm: num(design.heightMm), thicknessMm: num(design.thicknessMm),
               massKg: design.massKg, cpJkgK: design.cpJkgK ?? 1000, areaM2: design.areaM2 ?? 0.04,
               entropicVperK: design.entropicVperK ?? 0.0001,
-              maxDischargeC: design.maxDischargeC ?? 2, maxChargeC: design.maxChargeC ?? 1,
+              cycleLifeCycles: num(design.cycleLifeCycles), cycleLifeNote: st(design.cycleLifeNote),
+              chargeTempMinC: num(design.chargeTempMinC), chargeTempMaxC: num(design.chargeTempMaxC),
+              dischargeTempMinC: num(design.dischargeTempMinC), dischargeTempMaxC: num(design.dischargeTempMaxC),
+              selfDischargePctMonth: num(design.selfDischargePctMonth),
               seriesCount: pack.series, parallelCount: pack.parallel,
             },
           });

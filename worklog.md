@@ -201,3 +201,22 @@ Stage Summary:
 - New files: src/components/lab/{pack-thermal-3d,monitor-hardware,theme-toggle}.tsx. Deleted: thermal-blocks.tsx. Relocated: 2RC editor → Simulation tab.
 - Web Serial needs Chrome/Edge (HTTPS or localhost); other browsers get a clear notice + demo stream.
 - Dep pins unchanged (@react-three/fiber 9.7.0). Screenshots in download/t13-*.png.
+
+---
+Task ID: 14
+Agent: main (Z.ai)
+Task: Per user request — "(1) in the mechanical model, the full-pack battery specification hides the top view — move it to the bottom left; (2) in Analysis give the 3D view of the final full pack battery with export option."
+
+Work Log:
+- PACK-3D SPEC → BOTTOM-LEFT (pack-3d.tsx): removed the 3D-anchored spec Html chip floating above the pack ([0, WORLD_H/2+0.55, 0]) and the side chemistry chip — they blocked the top view at every camera angle. Replaced with ONE screen-space overlay card pinned to the bottom-left of the viewport (pointer-events-none, bg-card/95, backdrop-blur): line1 "13S3P · N cells" bold, line2 "V · Ah · Wh", line3 chemistry chip + ≈ kg cells + design name, line4 amber render-cap note (only when capped). Removed the PackStats component; spec values computed in PackViewer3D. Top view now fully unobstructed.
+- ANALYSIS FINAL PACK 3D (analysis-tab.tsx): new "Final pack — 3D view" card after the KPI row — PackViewer3D (dynamic ssr:false, code-split) rendering the design of the most recent stored run (API orderBy desc → runs[0]); falls back to the current store design when no runs exist; description names the source run. Two exports: "Spec CSV" (full pack spec: chemistry/form factor/cell dims/mass/S/P/cells/V/Ah/Wh/pack mass/Wh per kg/source run) and "Snapshot PNG" (3D canvas snapshot via toDataURL — enabled by adding preserveDrawingBuffer:true to the r3f Canvas gl props and a wrapperId prop to PackViewer3D). Success toast verified.
+- DATA BUG FOUND+FIXED (/api/simulate/route.ts): the auto-create design row path persisted only 14 of 44 fields — nominalV, dims (diameter/length/width/height/thickness), brand/model/formFactor, materials, cycle life, temp limits were all NULL for every simulation-created design, so packs read back from runs rendered "0.0 V · 0 Wh" and default cell geometry. The create now persists EVERY CellDesign field (st() string helper, num() 0→null helper, mirrors the saved-row read-back mapping).
+- DB BACKFILL (scripts/backfill-designs.ts): matched each of the 8 design rows to its library cell by model substring and patched all null fields from datasheet values (7/8 patched); "NMC 21700 EV Cell" (seed row, no library match) filled via scripts/fix-evcell.ts (nominalV from vmax/vmin midpoint = 3.55 V, cylindrical, 21.0×65.9 mm, NMC 811/Graphite-Si). Verified: Analysis now shows "10.8 V · 2.5 Ah · 27 Wh" for the 3S1P 25R pack (was 0.0 V).
+- MOBILE REGRESSION FOUND+FIXED: Analysis overflowed 390px viewport to 693px — the "Final pack" CardHeader row is a grid item (shadcn v4 @container/card-header grid) without min-w-0, so the truncate description's nowrap min-content blew the grid track out. Fix: min-w-0 on that header row → scrollW 390=390, row 308px, description truncates.
+- VERIFIED (agent-browser): Modeling Full-pack — one bottom-left spec card, correct values (40T: 3.6 V · 4.0 Ah · 14 Wh; blank design: 0.0 V fallback), top view clear, single instance; Analysis — 3D renders latest run's pack (3S1P busbars/terminals/BMS/enclosure), from-latest-run description, PNG snapshot dataURL 78 KB (preserveDrawingBuffer works), Spec CSV + Snapshot PNG clicks clean with success toast; 390px Modeling AND Analysis 0 px overflow; zero console/page errors; lint clean; tsc src/ clean.
+
+Stage Summary:
+- Full-pack specification no longer hides the 3D top view — it lives in a fixed bottom-left overlay card (works in Modeling and Analysis, light+dark).
+- Analysis tab now shows the final full-pack battery in 3D with Spec CSV + Snapshot PNG exports, data sourced from the latest stored run.
+- Root-caused and fixed a silent data-loss bug: simulation-created design rows were missing 24 fields (nominalV, dims, materials…); existing rows backfilled from the datasheet library.
+- Screenshots: download/t14-modeling-spec-bottomleft.png, download/t14-analysis-3d-exports.png.

@@ -112,7 +112,6 @@ function PackScene({
   const L = layoutOf(design, s, p);
   const rendered = Math.min(s * p, MAX_RENDERED_CELLS);
   const groups = Math.ceil(rendered / p); // fully rendered groups
-  const chem = CHEM_COLORS[design.chemistry] ?? "#1e5a96";
 
   // group centre positions (groups fill row by row along Z)
   const centers = useMemo(() => {
@@ -246,37 +245,13 @@ function PackScene({
         maxDistance={Math.max(10, Math.max(L.totalX, L.totalZ) * 2.6)}
         target={[0, 0.2, 0]}
       />
-      <PackStats design={design} s={s} p={p} chem={chem} total={s * p} rendered={rendered} halfX={L.totalX / 2} />
     </group>
   );
 }
 
-function PackStats({ design, s, p, chem, total, rendered, halfX }: { design: CellDesign; s: number; p: number; chem: string; total: number; rendered: number; halfX: number }) {
-  const packV = design.nominalV * s;
-  const packAh = design.capacityAh * p;
-  return (
-    <>
-      <Html position={[0, WORLD_H / 2 + 0.55, 0]} center distanceFactor={10} zIndexRange={[20, 0]}>
-        <div className="rounded-md border bg-card/95 px-2 py-1 text-center shadow-sm whitespace-nowrap">
-          <span className="text-[11px] font-bold text-foreground">{s}S{p}P · {total} cell{total === 1 ? "" : "s"}</span>
-          <span className="text-[10px] text-muted-foreground"> · {packV.toFixed(1)} V · {packAh.toFixed(1)} Ah · {(packV * packAh).toFixed(0)} Wh</span>
-        </div>
-      </Html>
-      {rendered < total && (
-        <Html position={[0, -WORLD_H / 2 - 0.4, 0]} center distanceFactor={10} zIndexRange={[20, 0]}>
-          <div className="rounded bg-amber-100 border border-amber-300 px-2 py-0.5 text-[10px] font-semibold text-amber-800 shadow-sm whitespace-nowrap">
-            showing {rendered} of {total} cells (render cap)
-          </div>
-        </Html>
-      )}
-      <Html position={[-(halfX + 0.55), WORLD_H / 2 - 0.2, 0]} center distanceFactor={10} zIndexRange={[20, 0]}>
-        <div className="pointer-events-none rounded border bg-card/90 px-1.5 py-0.5 text-[9px] font-bold shadow-sm whitespace-nowrap" style={{ color: chem }}>
-          {design.chemistry}
-        </div>
-      </Html>
-    </>
-  );
-}
+// Spec moved to a SCREEN-SPACE bottom-left card (in PackViewer3D below):
+// a 3D-anchored label floating above the pack used to hide the top view
+// at every camera angle. Screen-space overlay never covers the model.
 
 // FitCamera — move the camera out when the pack grows
 function FitCamera({ sizeX, sizeZ }: { sizeX: number; sizeZ: number }) {
@@ -294,11 +269,25 @@ function FitCamera({ sizeX, sizeZ }: { sizeX: number; sizeZ: number }) {
   return null;
 }
 
-export default function PackViewer3D({ design, series, parallel }: { design: CellDesign; series: number; parallel: number }) {
+export default function PackViewer3D({
+  design,
+  series,
+  parallel,
+  wrapperId,
+}: {
+  design: CellDesign;
+  series: number;
+  parallel: number;
+  wrapperId?: string;
+}) {
   const [spin, setSpin] = useState(true);
   const [showBus, setShowBus] = useState(true);
   const chem = CHEM_COLORS[design.chemistry] ?? "#1e5a96";
   const L = useMemo(() => layoutOf(design, series, parallel), [design, series, parallel]);
+  const total = series * parallel;
+  const rendered = Math.min(total, MAX_RENDERED_CELLS);
+  const packV = design.nominalV * series;
+  const packAh = design.capacityAh * parallel;
 
   return (
     <div className="space-y-3">
@@ -319,26 +308,41 @@ export default function PackViewer3D({ design, series, parallel }: { design: Cel
         </div>
       </div>
 
-      <div className="relative h-[360px] overflow-hidden rounded-lg border bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950">
-        <Canvas dpr={[1, 2]} camera={{ position: [5, 3, 6], fov: 40 }} gl={{ antialias: true }}>
+      <div id={wrapperId} className="relative h-[360px] overflow-hidden rounded-lg border bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950">
+        <Canvas dpr={[1, 2]} camera={{ position: [5, 3, 6], fov: 40 }} gl={{ antialias: true, preserveDrawingBuffer: true }}>
           <ambientLight intensity={0.75} />
           <directionalLight position={[5, 7, 4]} intensity={1.25} castShadow />
           <directionalLight position={[-5, 3, -4]} intensity={0.4} />
           <PackScene design={design} s={series} p={parallel} showBus={showBus} spin={spin} />
           <FitCamera sizeX={L.totalX} sizeZ={L.totalZ} />
         </Canvas>
-        <div className="pointer-events-none absolute bottom-2 left-2 flex flex-wrap gap-1.5">
-          <span className="rounded bg-card/90 border px-1.5 py-0.5 text-[10px] font-semibold" style={{ color: chem }}>
-            {design.chemistry}
-          </span>
-          <span className="rounded bg-card/90 border px-1.5 py-0.5 text-[10px] text-muted-foreground">
-            {(design.nominalV * series).toFixed(1)} V · {(design.capacityAh * parallel).toFixed(1)} Ah
-          </span>
-          {design.massKg > 0 && (
-            <span className="rounded bg-card/90 border px-1.5 py-0.5 text-[10px] text-muted-foreground">
-              ≈ {(design.massKg * series * parallel).toFixed(1)} kg cells
-            </span>
-          )}
+        {/* battery specification — fixed to the BOTTOM-LEFT of the viewport,
+            never overlapping the pack's top view */}
+        <div className="pointer-events-none absolute bottom-2 left-2 max-w-[calc(100%-1rem)]">
+          <div className="space-y-0.5 rounded-lg border bg-card/95 px-2.5 py-1.5 shadow-sm backdrop-blur-sm">
+            <div className="whitespace-nowrap text-[11px] font-bold text-foreground">
+              {series}S{parallel}P · {total} cell{total === 1 ? "" : "s"}
+            </div>
+            <div className="whitespace-nowrap text-[10px] text-muted-foreground">
+              {packV.toFixed(1)} V · {packAh.toFixed(1)} Ah · {(packV * packAh).toFixed(0)} Wh
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="rounded border px-1 py-px text-[9px] font-bold" style={{ color: chem }}>
+                {design.chemistry}
+              </span>
+              {design.massKg > 0 && (
+                <span className="whitespace-nowrap text-[9px] text-muted-foreground">
+                  ≈ {(design.massKg * total).toFixed(1)} kg cells
+                </span>
+              )}
+              <span className="whitespace-nowrap text-[9px] text-muted-foreground">{design.name}</span>
+            </div>
+            {rendered < total && (
+              <div className="whitespace-nowrap text-[9px] font-semibold text-amber-600 dark:text-amber-400">
+                showing {rendered} of {total} cells (render cap)
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

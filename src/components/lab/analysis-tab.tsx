@@ -1,16 +1,25 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { BarChart3, Trash2, Download, RefreshCw } from "lucide-react";
+import { BarChart3, Trash2, Download, RefreshCw, Box, Camera } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line,
 } from "recharts";
 import { SectionTitle, StatCard, ChartCard, CHART_COLORS, WizardNav } from "./shared";
+import { useLabStore } from "@/lib/lab/store";
+import type { CellDesign } from "@/lib/lab/engine";
 import { cn } from "@/lib/utils";
+
+// 3D viewer — client-only (WebGL), code-split out of the main bundle
+const PackViewer3D = dynamic(() => import("./pack-3d"), {
+  ssr: false,
+  loading: () => <div className="h-[360px] rounded-lg border bg-slate-100 dark:bg-slate-900 animate-pulse" />,
+});
 
 interface RunRow {
   id: string;
@@ -22,7 +31,11 @@ interface RunRow {
   summary: string;
   series: string;
   createdAt: string;
-  design: { name: string; chemistry: string; capacityAh: number; seriesCount: number; parallelCount: number };
+  design: {
+    name: string; chemistry: string; capacityAh: number; seriesCount: number; parallelCount: number;
+    nominalV?: number; formFactor?: string; cathode?: string;
+    diameterMm?: number; lengthMm?: number; widthMm?: number; heightMm?: number; thicknessMm?: number; massKg?: number;
+  };
 }
 
 const PROFILE_COLORS: Record<string, string> = {
@@ -34,6 +47,7 @@ const PROFILE_COLORS: Record<string, string> = {
 
 export function AnalysisTab() {
   const { toast } = useToast();
+  const { design: storeDesign, pack } = useLabStore();
   const [runs, setRuns] = useState<RunRow[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -108,6 +122,62 @@ export function AnalysisTab() {
     URL.revokeObjectURL(url);
   };
 
+  // Final pack = design of the most recent stored run (falls back to the current design)
+  const finalRun = runs[0];
+  const finalDesign = useMemo<CellDesign>(
+    () => (finalRun ? (finalRun.design as unknown as CellDesign) : storeDesign),
+    [finalRun, storeDesign]
+  );
+  const finalS = finalRun ? finalRun.design.seriesCount : pack.series;
+  const finalP = finalRun ? finalRun.design.parallelCount : pack.parallel;
+  const finalSrc = finalRun ? `latest run “${finalRun.name}”` : "current design — no stored runs yet";
+
+  const exportPackPng = () => {
+    const canvas = document.querySelector("#final-pack-3d canvas") as HTMLCanvasElement | null;
+    if (!canvas) {
+      toast({ title: "3D view not ready", variant: "destructive" });
+      return;
+    }
+    try {
+      const a = document.createElement("a");
+      a.href = canvas.toDataURL("image/png");
+      a.download = `batterylab-final-pack-${finalS}S${finalP}P.png`;
+      a.click();
+      toast({ title: "3D snapshot downloaded" });
+    } catch {
+      toast({ title: "Snapshot failed", variant: "destructive" });
+    }
+  };
+
+  const exportPackCsv = () => {
+    const d = finalDesign;
+    const packV = (d.nominalV || 0) * finalS;
+    const packAh = (d.capacityAh || 0) * finalP;
+    const packWh = packV * packAh;
+    const isPouch = /pouch|prismatic|blade/i.test(d.formFactor || "");
+    const dims = isPouch
+      ? `${d.widthMm || "?"}x${d.heightMm || "?"}x${d.thicknessMm || "?"}mm`
+      : `dia${d.diameterMm || "?"}x${d.lengthMm || "?"}mm`;
+    const packMass = (d.massKg || 0) * finalS * finalP;
+    const head = "design,chemistry,form_factor,cell_dims,cell_capacity_Ah,cell_nominal_V,cell_mass_kg,series,parallel,total_cells,pack_V,pack_Ah,pack_Wh,pack_cell_mass_kg,energy_density_Wh_per_kg,source_run";
+    const row = [
+      `"${(d.name || "").replace(/"/g, "'")}"`, `"${d.chemistry}"`, `"${d.formFactor || "cylindrical"}"`,
+      `"${dims}"`, d.capacityAh ?? "", d.nominalV ?? "", d.massKg ?? "",
+      finalS, finalP, finalS * finalP,
+      packV.toFixed(2), packAh.toFixed(2), packWh.toFixed(1),
+      packMass > 0 ? packMass.toFixed(2) : "",
+      packMass > 0 && packWh > 0 ? (packWh / packMass).toFixed(1) : "",
+      `"${finalRun ? finalRun.name : ""}"`,
+    ].join(",");
+    const blob = new Blob([[head, row].join("\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `batterylab-final-pack-${finalS}S${finalP}P.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // KPI aggregation across all runs
   const kpis = useMemo(() => {
     if (runs.length === 0) return null;
@@ -172,6 +242,33 @@ export function AnalysisTab() {
           <StatCard label="Best efficiency" value={kpis.bestEff > 0 ? kpis.bestEff : "—"} unit={kpis.bestEff > 0 ? "%" : ""} />
         </div>
       )}
+
+      {/* Final pack — 3D view + export */}
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Box className="h-4 w-4 text-primary" /> Final pack — 3D view
+              </CardTitle>
+              <CardDescription className="truncate">
+                {finalDesign.name || finalDesign.chemistry} · {finalS}S{finalP}P · {finalS * finalP} cells · from {finalSrc}
+              </CardDescription>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" onClick={exportPackCsv}>
+                <Download className="h-3.5 w-3.5 mr-1" /> Spec CSV
+              </Button>
+              <Button size="sm" variant="outline" onClick={exportPackPng}>
+                <Camera className="h-3.5 w-3.5 mr-1" /> Snapshot PNG
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <PackViewer3D design={finalDesign} series={finalS} parallel={finalP} wrapperId="final-pack-3d" />
+        </CardContent>
+      </Card>
 
       {/* Run table */}
       <Card>
