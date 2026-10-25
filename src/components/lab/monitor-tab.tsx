@@ -193,7 +193,7 @@ export function MonitorTab() {
       </Card>
 
       {/* Live gauges */}
-      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3 stagger">
         <StatCard label="Pack voltage" value={cur.vPack.toFixed(1)} unit="V" hint={`${V.toFixed(3)} V/cell`} />
         <StatCard label="Pack current" value={(Math.abs(I) * pack.parallel).toFixed(1)} unit="A" hint={`${I >= 0 ? "discharge" : I < 0 ? "charge" : "rest"} ${Math.abs(I).toFixed(2)} A/cell`} />
         <StatCard label="SOC" value={(soc * 100).toFixed(1)} unit="%" tone={soc < 0.15 ? "warn" : "default"} hint={`${(design.capacityAh * pack.parallel * soc).toFixed(1)} of ${(design.capacityAh * pack.parallel).toFixed(1)} Ah`} />

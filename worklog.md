@@ -272,3 +272,21 @@ Work Log:
 
 Stage Summary:
 - Every cell and the pack itself now carry colour-coded polarity (red = +, dark = −) in all PackViewer3D instances (Modeling + Analysis), and the 3D thermal view marks hottest/coldest with text-free rings — no overlapping elements possible in either 3D view.
+
+---
+Task ID: 18
+Agent: main (Z.ai)
+Task: Per user request — "i want the ui/ux design more attractive and professional design, and animation in this website".
+
+Work Log:
+- globals.css — added a motion & polish kit: page texture (soft top glow + faint 30px engineering grid, light+dark), ::selection tint, keyframes bl-fade-up/fade-in/scale-in/shine/float/glow-ping/pan, utilities .animate-fade-up/.animate-fade-in/.animate-scale-in, .stagger (children cascade 30–550ms, up to 14), .card-lift (hover lift + shadow, dark variant), .shine (sheen sweep), .text-gradient (animated brand gradient), .hairline-anim, .glow-ping, .animate-float, and a prefers-reduced-motion accessibility guard.
+- page.tsx — header upgraded to glass (bg-card/85 + backdrop-blur-xl), gradient logo tile with shine sweep + hover tilt, "BatteryLab" with animated gradient "Lab", active nav pill = gradient + shadow + press scale, non-active hover tint; NEW reading-progress gradient hairline under the header (scroll listener, passive); tab content wrapped in a div keyed on activeTab with animate-fade-up → every step switch animates in; footer got brand mark + two-column layout.
+- shared.tsx — SectionTitle icon now sits in a gradient chip (rounded-lg, gradient fill, ring, shadow); StatCard got card-lift + gradient accent edge on warn/fail tones; ChartCard got card-lift; WizardNav progress dots: active dot = gradient with shadow.
+- ui/card.tsx — all Cards: transition-shadow + hover:shadow-md. ui/button.tsx — active:scale-[0.97] press feedback globally.
+- copilot.tsx — launcher: gradient pill + glow-ping + hover lift + floating Sparkles icon; panel: animate-scale-in origin-bottom-right; every chat bubble: animate-fade-up. theme-toggle.tsx — icon re-keyed on toggle with animate-scale-in pop (amber sun in dark).
+- Staggered entrances added to the stat grids: design-tab (live KPIs), connection-tab (pack summary ×8), model-tab (mech spec ×6), simulate-tab (profile picker, result stats, ECM params), thermal-tab (results ×4), pack-thermal-map (×5), monitor-tab (gauges ×8), analysis-tab (program KPIs ×5).
+- VERIFIED (agent-browser): Design/Simulation screenshots light+dark show glass header, gradient brand, progress hairline, texture, gradient chips; copilot panel opens cleanly; all 8 tabs at 390px = 390 scrollWidth (zero overflow); zero console errors; dev.log healthy (only a stale EADDRINUSE from the init double-start; live server serves 200s); lint clean; tsc src/ clean.
+- Screenshots: download/t18-design-light.png, t18-design-dark.png, t18-simulation-dark.png, t18-copilot-panel.png, t18-mobile-thermal.png.
+
+Stage Summary:
+- BatteryLab now has a cohesive professional design system: glass navigation with scroll progress, gradient brand identity, staggered card entrances on every step, hover lift on stats/charts/cards, press feedback on buttons, animated copilot, theme-toggle pop, and a full reduced-motion accessibility guard — implemented purely with CSS/Tailwind (zero new dependencies).

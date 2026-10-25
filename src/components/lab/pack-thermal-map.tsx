@@ -69,7 +69,7 @@ export function PackThermalMap({
   return (
     <div className="space-y-3">
       {/* live stats row */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 stagger">
         <div className="rounded-lg border bg-card p-2">
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Pack mean</div>
           <div className="text-base font-bold tabular-nums">{cur.tempC.toFixed(1)} °C</div>

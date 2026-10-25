@@ -42,8 +42,12 @@ export function ThemeToggle() {
       aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
       title={dark ? "Light mode" : "Dark mode"}
     >
-      {/* icon shows what clicking switches to */}
-      {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+      {/* icon shows what clicking switches to — re-keyed so it pops in on toggle */}
+      {dark ? (
+        <Sun key="sun" className="h-4 w-4 animate-scale-in text-amber-500" />
+      ) : (
+        <Moon key="moon" className="h-4 w-4 animate-scale-in" />
+      )}
     </Button>
   );
 }

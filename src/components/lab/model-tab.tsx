@@ -55,7 +55,7 @@ export function ModelTab() {
         <h3 className="text-sm font-semibold mb-3 flex items-center gap-1.5">
           <Ruler className="h-4 w-4 text-primary" /> Mechanical specification
         </h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 stagger">
           <StatCard
             label="Form factor"
             value={design.formFactor || "—"}

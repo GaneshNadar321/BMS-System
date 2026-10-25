@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Battery, BookOpen, Check } from "lucide-react";
 import { useLabStore } from "@/lib/lab/store";
 import { designIssues } from "@/lib/lab/engine";
@@ -27,6 +28,21 @@ const STEPS = [
 export default function Home() {
   const activeTab = useLabStore((s) => s.activeTab);
   const setActiveTab = useLabStore((s) => s.setActiveTab);
+  // Reading-progress hairline under the header — scroll depth 0..1
+  const [progress, setProgress] = useState(0);
+  useEffect(() => {
+    const onScroll = () => {
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      setProgress(max > 0 ? Math.min(1, window.scrollY / max) : 0);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, []);
   // Step completion — derived from live store state so checkmarks stay
   // truthful: design valid, schematic connected, step visited, run stored.
   // (Primitive selectors only — object selectors break useSyncExternalStore.)
@@ -41,23 +57,26 @@ export default function Home() {
   };
 
   const navBtn = (active: boolean) =>
-    `flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium whitespace-nowrap transition-colors ${
+    `flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium whitespace-nowrap transition-all duration-200 active:scale-95 ${
       active
-        ? "bg-primary text-white shadow-sm"
-        : "text-muted-foreground hover:text-foreground"
+        ? "bg-gradient-to-br from-primary to-primary/85 text-white shadow-sm shadow-primary/40"
+        : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.04]"
     }`;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b bg-card">
+      <header className="sticky top-0 z-40 border-b bg-card/85 backdrop-blur-xl supports-[backdrop-filter]:bg-card/75">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="flex h-14 items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 shrink-0">
-              <div className="h-8 w-8 rounded-md bg-primary grid place-items-center">
+              <div className="shine h-8 w-8 rounded-md bg-gradient-to-br from-primary to-cyan-700 grid place-items-center shadow-md shadow-primary/30 transition-transform duration-300 hover:scale-105 hover:rotate-3">
                 <Battery className="h-4.5 w-4.5 text-white" />
               </div>
-              <div className="font-semibold leading-none tracking-tight text-[15px]">BatteryLab</div>
+              <div className="leading-none tracking-tight text-[15px]">
+                <span className="font-bold">Battery</span>
+                <span className="font-bold text-gradient">Lab</span>
+              </div>
             </div>
             <div className="flex items-center gap-2 min-w-0">
               <nav aria-label="Workflow steps" className="flex items-center gap-0.5 rounded-lg bg-muted p-1 overflow-x-auto scrollbar-none">
@@ -91,24 +110,38 @@ export default function Home() {
             </div>
           </div>
         </div>
+        {/* reading-progress hairline + animated gradient accent */}
+        <div className="h-[2px] w-full bg-border/60">
+          <div
+            className="h-full bg-gradient-to-r from-primary via-cyan-600 to-primary transition-[width] duration-150 ease-out"
+            style={{ width: `${Math.max(2, progress * 100)}%` }}
+            aria-hidden
+          />
+        </div>
       </header>
 
-      {/* Main content */}
+      {/* Main content — keyed on the tab so every step slides/fades in on switch */}
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 sm:px-6 py-6">
-        {activeTab === "design" && <DesignTab />}
-        {activeTab === "library" && <LibraryTab />}
-        {activeTab === "connection" && <ConnectionTab />}
-        {activeTab === "model" && <ModelTab />}
-        {activeTab === "simulate" && <SimulateTab />}
-        {activeTab === "thermal" && <ThermalTab />}
-        {activeTab === "monitor" && <MonitorTab />}
-        {activeTab === "analysis" && <AnalysisTab />}
+        <div key={activeTab} className="animate-fade-up">
+          {activeTab === "design" && <DesignTab />}
+          {activeTab === "library" && <LibraryTab />}
+          {activeTab === "connection" && <ConnectionTab />}
+          {activeTab === "model" && <ModelTab />}
+          {activeTab === "simulate" && <SimulateTab />}
+          {activeTab === "thermal" && <ThermalTab />}
+          {activeTab === "monitor" && <MonitorTab />}
+          {activeTab === "analysis" && <AnalysisTab />}
+        </div>
       </main>
 
       {/* Footer */}
       <footer className="mt-auto border-t bg-card">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-3 text-[11px] text-muted-foreground">
-          Model estimates — validate with physical testing.
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-3 flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            <Battery className="h-3 w-3 text-primary" />
+            BatteryLab — virtual battery design &amp; test platform
+          </span>
+          <span>Model estimates — validate with physical testing.</span>
         </div>
       </footer>
 

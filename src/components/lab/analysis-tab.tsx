@@ -234,7 +234,7 @@ export function AnalysisTab() {
 
       {/* Program KPIs */}
       {kpis && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 stagger">
           <StatCard label="Test runs" value={kpis.totalRuns} />
           <StatCard label="Cumulative pack energy" value={(kpis.totalEnergy / 1000).toFixed(2)} unit="kWh" />
           <StatCard label="Cumulative heat" value={kpis.totalHeat.toFixed(0)} unit="Wh" />

@@ -55,14 +55,14 @@ export function WizardNav({
   const last = step === WIZARD.length - 1;
 
   return (
-    <div className="rounded-lg border bg-card px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+    <div className="rounded-lg border bg-card px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-2 shadow-sm">
       <div className="flex items-center gap-1.5 shrink-0" aria-hidden>
         {WIZARD.map((w, i) => (
           <span
             key={w.id}
             className={cn(
               "h-1.5 rounded-full transition-all duration-300",
-              i === step ? "w-6 bg-primary" : i < step ? "w-1.5 bg-primary/40" : "w-1.5 bg-border"
+              i === step ? "w-6 bg-gradient-to-r from-primary to-cyan-600 shadow-sm shadow-primary/40" : i < step ? "w-1.5 bg-primary/40" : "w-1.5 bg-border"
             )}
           />
         ))}
@@ -184,7 +184,14 @@ export function PlaybackBar({
 export function SectionTitle({ title, desc, icon }: { title: string; desc?: string; icon?: ReactNode }) {
   return (
     <div className="flex items-center gap-3 mb-4">
-      {icon && <div className="text-primary shrink-0">{icon}</div>}
+      {icon && (
+        <div
+          aria-hidden
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-primary/15 via-primary/10 to-cyan-500/10 text-primary ring-1 ring-primary/20 shadow-sm"
+        >
+          {icon}
+        </div>
+      )}
       <div className="min-w-0">
         <h2 className="text-[15px] font-semibold tracking-tight leading-tight">{title}</h2>
         {desc && <p className="text-[13px] text-muted-foreground mt-0.5">{desc}</p>}
@@ -197,11 +204,21 @@ export function StatCard({ label, value, unit, hint, tone }: { label: string; va
   return (
     <div
       className={cn(
-        "rounded-lg border bg-card p-2.5",
+        "card-lift rounded-lg border bg-card p-2.5 relative overflow-hidden",
         tone === "warn" && "border-amber-300 bg-amber-50 dark:border-amber-500/40 dark:bg-amber-500/10",
         tone === "fail" && "border-red-300 bg-red-50 dark:border-red-500/40 dark:bg-red-500/10"
       )}
     >
+      {/* accent edge on the tone cards */}
+      {(tone === "warn" || tone === "fail") && (
+        <span
+          aria-hidden
+          className={cn(
+            "absolute inset-x-0 top-0 h-0.5",
+            tone === "warn" ? "bg-gradient-to-r from-amber-400 to-amber-500" : "bg-gradient-to-r from-red-400 to-red-500"
+          )}
+        />
+      )}
       <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">{label}</div>
       <div className="mt-0.5 flex items-baseline gap-1">
         <span className="text-lg font-semibold tabular-nums leading-tight">{value}</span>
@@ -220,7 +237,7 @@ export function StatusBadge({ status }: { status: "ok" | "warn" | "fail" }) {
 
 export function ChartCard({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
   return (
-    <div className="rounded-lg border bg-card p-4">
+    <div className="card-lift rounded-lg border bg-card p-4">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-[13px] font-semibold">{title}</h3>
         {action}

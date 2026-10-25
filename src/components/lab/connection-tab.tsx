@@ -248,7 +248,7 @@ export function ConnectionTab() {
       {/* Pack KPIs */}
       <div>
         <h3 className="text-sm font-semibold mb-3">Pack electrical summary</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 stagger">
           <StatCard label="Nominal V" value={pm.packNominalV} unit="V" />
           <StatCard label="V max" value={pm.packVmax} unit="V" />
           <StatCard label="V min" value={pm.packVmin} unit="V" />

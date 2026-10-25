@@ -185,7 +185,7 @@ export function ThermalTab() {
             </div>
 
             {s ? (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 stagger">
                 <StatCard label="Peak temp" value={s.tempMaxC} unit="°C" tone={s.tempMaxC > 60 ? "fail" : s.tempMaxC > 45 ? "warn" : "default"} />
                 <StatCard label="ΔT rise" value={`+${s.deltaT}`} unit="K" />
                 <StatCard label="End temp" value={s.tempEndC} unit="°C" hint={s.tempEndC < s.tempMaxC - 0.5 ? "cooling down" : "still heating"} />

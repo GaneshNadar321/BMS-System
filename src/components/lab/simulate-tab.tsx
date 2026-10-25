@@ -115,7 +115,7 @@ export function SimulateTab() {
       />
 
       {/* Profile picker */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 stagger">
         {PROFILES.map((p) => (
           <button
             key={p.id}
@@ -264,7 +264,7 @@ export function SimulateTab() {
           <CardContent>
             {s ? (
               <>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 stagger">
                   <StatCard label="Throughput" value={s.capacityAh} unit="Ah" hint="charge moved" />
                   <StatCard
                     label={simParams.profile === "cccv" ? "Energy in" : "Energy out"}
@@ -306,7 +306,7 @@ export function SimulateTab() {
             V = OCV(SOC) − I·R₀ − V_C1 − V_C2 · R₀ from the HPPC instantaneous step, R₁/C₁ fast recovery, R₂/C₂ slow tail. Set R₁/R₂ to 0 for a simple Rint model.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <CardContent className="grid grid-cols-2 md:grid-cols-5 gap-3 stagger">
           <PField label="R₀ (mΩ)" value={+(design.r0 * 1000).toFixed(2)} onChange={(v) => updateDesign({ r0: v / 1000 })} />
           <PField label="R₁ (mΩ)" value={+(design.r1 * 1000).toFixed(2)} onChange={(v) => updateDesign({ r1: v / 1000 })} />
           <PField label="C₁ (F)" value={design.c1} onChange={(v) => updateDesign({ c1: v })} />

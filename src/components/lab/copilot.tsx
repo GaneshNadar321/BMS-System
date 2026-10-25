@@ -24,14 +24,14 @@ export function Copilot() {
 
   return (
     <>
-      {/* Floating launcher */}
+      {/* Floating launcher — glow ping + lift on hover */}
       {!copilotOpen && (
         <button
           onClick={() => setCopilotOpen(true)}
-          className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-primary text-white pl-3.5 pr-4 py-2.5 shadow-lg hover:shadow-xl transition-shadow"
+          className="glow-ping fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-gradient-to-br from-primary to-cyan-700 text-white pl-3.5 pr-4 py-2.5 shadow-lg shadow-primary/30 transition-all duration-200 hover:shadow-xl hover:shadow-primary/40 hover:-translate-y-0.5 active:scale-95"
           aria-label="Open the AI copilot"
         >
-          <Sparkles className="h-4 w-4" />
+          <Sparkles className="h-4 w-4 animate-float" />
           <span className="text-sm font-semibold">AI Copilot</span>
           <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" aria-hidden />
         </button>
@@ -39,7 +39,7 @@ export function Copilot() {
 
       {/* Panel */}
       {copilotOpen && (
-        <div className="fixed bottom-5 right-5 z-50 w-[min(92vw,380px)] rounded-xl border bg-card shadow-2xl flex flex-col overflow-hidden">
+        <div className="animate-scale-in origin-bottom-right fixed bottom-5 right-5 z-50 w-[min(92vw,380px)] rounded-xl border bg-card shadow-2xl flex flex-col overflow-hidden">
           <div className="flex items-center gap-2 border-b px-3.5 py-2.5 bg-muted/40">
             <Sparkles className="h-4 w-4 text-primary" />
             <div className="font-semibold text-sm">VoltAI Copilot</div>
@@ -64,7 +64,7 @@ export function Copilot() {
             {copilotMessages.map((m, i) => {
               const patch = m.role === "assistant" ? extractApplyPatch(m.content) : null;
               return (
-                <div key={i} className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}>
+                <div key={i} className={cn("flex animate-fade-up", m.role === "user" ? "justify-end" : "justify-start")}>
                   <div
                     className={cn(
                       "max-w-[85%] rounded-xl px-3 py-2 text-[13px] leading-relaxed whitespace-pre-wrap",
