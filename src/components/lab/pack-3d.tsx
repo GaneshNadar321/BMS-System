@@ -68,9 +68,14 @@ function PackCell({
           <boxGeometry args={[0.16, WORLD_H * 0.94, R * 1.9]} />
           <meshStandardMaterial color={chem} roughness={0.5} metalness={0.15} />
         </mesh>
-        <mesh position={[0, WORLD_H / 2 + 0.05, 0]}>
-          <boxGeometry args={[0.13, 0.1, 0.3]} />
-          <meshStandardMaterial color="#c8ccd4" metalness={0.9} roughness={0.25} />
+        {/* + (red) and − (dark) terminal tabs on the pouch top */}
+        <mesh position={[0.05, WORLD_H / 2 + 0.05, 0]} castShadow>
+          <boxGeometry args={[0.05, 0.1, 0.26]} />
+          <meshStandardMaterial color="#dc2626" metalness={0.4} roughness={0.35} />
+        </mesh>
+        <mesh position={[-0.05, WORLD_H / 2 + 0.05, 0]} castShadow>
+          <boxGeometry args={[0.05, 0.1, 0.26]} />
+          <meshStandardMaterial color="#334155" metalness={0.5} roughness={0.4} />
         </mesh>
       </group>
     );
@@ -87,10 +92,16 @@ function PackCell({
         <cylinderGeometry args={[R + 0.012, R + 0.012, WORLD_H * 0.9, 32, 1, true]} />
         <meshStandardMaterial color={chem} metalness={0.15} roughness={0.55} side={THREE.DoubleSide} />
       </mesh>
-      {/* + terminal nub */}
-      <mesh position={[0, WORLD_H / 2 + 0.045, 0]}>
-        <cylinderGeometry args={[R * 0.24, R * 0.26, 0.09, 20]} />
-        <meshStandardMaterial color="#c8ccd4" metalness={0.95} roughness={0.2} />
+      {/* + terminal nub — bright RED and tall enough to poke through the busbar,
+          so every cell's polarity reads instantly from any angle */}
+      <mesh position={[0, WORLD_H / 2 + 0.06, 0]} castShadow>
+        <cylinderGeometry args={[R * 0.28, R * 0.3, 0.2, 20]} />
+        <meshStandardMaterial color="#dc2626" metalness={0.35} roughness={0.35} />
+      </mesh>
+      {/* − terminal — dark ring around the can base (the steel can body is negative) */}
+      <mesh position={[0, -WORLD_H * 0.4825 + 0.012, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[R * 0.96, 0.022, 8, 32]} />
+        <meshStandardMaterial color="#334155" metalness={0.55} roughness={0.4} />
       </mesh>
     </group>
   );
@@ -188,27 +199,33 @@ function PackScene({
         );
       })()}
 
-      {/* main terminals */}
+      {/* main pack terminals — big colour-coded posts with washer rings:
+          red = +, dark slate = −. Identification is via colour + the
+          screen-space legend card (floating Html labels used to overlap). */}
       {centers.length > 0 && (() => {
         const first = centers[0];
         const last = centers[centers.length - 1];
+        const px = first.x - L.groupW / 2 + 0.14;
+        const nx = last.x + L.groupW / 2 - 0.14;
         return (
-          <>
-            <mesh position={[first.x - L.groupW / 2 + 0.12, busY + 0.09, first.z]} castShadow>
-              <cylinderGeometry args={[0.09, 0.09, 0.18, 20]} />
-              <meshStandardMaterial color="#dc2626" metalness={0.6} roughness={0.3} />
+          <group>
+            <mesh position={[px, busY + 0.11, first.z]} castShadow>
+              <cylinderGeometry args={[0.12, 0.14, 0.24, 20]} />
+              <meshStandardMaterial color="#dc2626" metalness={0.35} roughness={0.4} />
             </mesh>
-            <Html position={[first.x - L.groupW / 2 + 0.12, busY + 0.45, first.z]} center distanceFactor={8} zIndexRange={[20, 0]}>
-              <div className="rounded border bg-card/95 px-1.5 py-0.5 text-[9px] font-bold text-red-600 shadow-sm whitespace-nowrap">+ terminal</div>
-            </Html>
-            <mesh position={[last.x + L.groupW / 2 - 0.12, busY + 0.09, last.z]} castShadow>
-              <cylinderGeometry args={[0.09, 0.09, 0.18, 20]} />
-              <meshStandardMaterial color="#334155" metalness={0.6} roughness={0.3} />
+            <mesh position={[px, busY + 0.005, first.z]} rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[0.19, 0.032, 8, 28]} />
+              <meshStandardMaterial color="#dc2626" metalness={0.35} roughness={0.4} />
             </mesh>
-            <Html position={[last.x + L.groupW / 2 - 0.12, busY + 0.45, last.z]} center distanceFactor={8} zIndexRange={[20, 0]}>
-              <div className="rounded border bg-card/95 px-1.5 py-0.5 text-[9px] font-bold text-red-500 dark:text-slate-200 shadow-sm whitespace-nowrap">− terminal</div>
-            </Html>
-          </>
+            <mesh position={[nx, busY + 0.11, last.z]} castShadow>
+              <cylinderGeometry args={[0.12, 0.14, 0.24, 20]} />
+              <meshStandardMaterial color="#334155" metalness={0.5} roughness={0.4} />
+            </mesh>
+            <mesh position={[nx, busY + 0.005, last.z]} rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[0.19, 0.032, 8, 28]} />
+              <meshStandardMaterial color="#334155" metalness={0.5} roughness={0.4} />
+            </mesh>
+          </group>
         );
       })()}
 
@@ -342,6 +359,14 @@ export default function PackViewer3D({
                 showing {rendered} of {total} cells (render cap)
               </div>
             )}
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 border-t border-border/60 pt-1">
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-red-600 dark:text-red-400">
+                <i className="h-2 w-2 rounded-full bg-red-600" /> + positive — red caps &amp; red post
+              </span>
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-foreground">
+                <i className="h-2 w-2 rounded-full bg-slate-500" /> − negative — dark base rings &amp; dark post
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -350,11 +375,12 @@ export default function PackViewer3D({
         <span className="inline-flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-sm" style={{ background: chem }} /> cell wrapper / chemistry</span>
         <span className="inline-flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-sm bg-slate-300" /> nickel busbars (P + series jumpers)</span>
         <span className="inline-flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-sm bg-emerald-700" /> BMS / CMU board</span>
-        <span className="inline-flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-full bg-red-600" /> main terminals</span>
+        <span className="inline-flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-full bg-red-600" /> + positive (red post · red cell caps)</span>
+        <span className="inline-flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-full bg-slate-500" /> − negative (dark post · dark base rings)</span>
         <span className="ml-auto">drag to orbit · scroll to zoom</span>
       </div>
       <p className={cn("text-[11px] text-muted-foreground")}>
-        Layout follows your Connection settings — change S×P there (or the cell dimensions in Design) and this rebuilds to match: {parallel} cells per group in parallel, {series} groups in series, one nickel strip per group and serpentine series jumpers.
+        Layout follows your Connection settings — change S×P there (or the cell dimensions in Design) and this rebuilds to match: {parallel} cells per group in parallel, {series} groups in series, one nickel strip per group and serpentine series jumpers. Polarity is colour-coded: every cell has a red + cap on top and a dark − ring at its base, and the pack's main output posts sit at the outer ends — red for +, dark for −.
       </p>
     </div>
   );

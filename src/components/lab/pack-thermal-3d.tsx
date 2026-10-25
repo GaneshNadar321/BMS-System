@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, ContactShadows, Html, Edges } from "@react-three/drei";
+import { OrbitControls, ContactShadows, Edges } from "@react-three/drei";
 import * as THREE from "three";
 import type { CellDesign } from "@/lib/lab/engine";
 import { MAX_RENDERED_CELLS, hash01, tempColor, cellTemps } from "@/lib/lab/pack";
@@ -141,9 +141,6 @@ function Airflow({ totalX, totalZ, hConv }: { totalX: number; totalZ: number; hC
           <torusGeometry args={[0.3, 0.025, 8, 32]} />
           <meshStandardMaterial color="#94a3b8" metalness={0.6} roughness={0.35} />
         </mesh>
-        <Html position={[0, 0.55, 0]} center distanceFactor={9} zIndexRange={[20, 0]}>
-          <div className="rounded border bg-card/95 px-1.5 py-0.5 text-[9px] font-semibold text-cyan-700 dark:text-cyan-300 shadow-sm whitespace-nowrap">cooling airflow · h = {hConv} W/m²K</div>
-        </Html>
       </group>
     </group>
   );
@@ -191,6 +188,43 @@ function HeatShimmer({ positions, temps }: { positions: [number, number, number]
           <meshBasicMaterial color="#fb923c" transparent opacity={0.25} depthWrite={false} />
         </mesh>
       ))}
+    </group>
+  );
+}
+
+/** Hottest / coldest markers — floating colour halos (red = hottest, cyan = coldest),
+ *  gently bobbing so they're easy to spot while the pack spins. Deliberately text-free:
+ *  the old floating Html labels ("hottest 31.2°C", "coldest …", "cooling airflow …")
+ *  used to pile on top of each other while orbiting — the coldest cell sits right at
+ *  the airflow inlet next to the fan label, and hot/cold cells are often neighbours.
+ *  The values live in the screen-space chips at the top-left of the canvas instead. */
+function HotColdRings({
+  hotPos,
+  coldPos,
+  ringR,
+}: {
+  hotPos: [number, number, number];
+  coldPos: [number, number, number];
+  ringR: number;
+}) {
+  const g = useRef<THREE.Group>(null);
+  useFrame((state) => {
+    if (!g.current) return;
+    const y = WORLD_H / 2 + 0.18 + Math.sin(state.clock.elapsedTime * 2.2) * 0.04;
+    g.current.children.forEach((c) => {
+      c.position.y = y;
+    });
+  });
+  return (
+    <group ref={g}>
+      <mesh position={[hotPos[0], WORLD_H / 2 + 0.18, hotPos[2]]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[ringR, 0.035, 8, 32]} />
+        <meshBasicMaterial color="#ef4444" />
+      </mesh>
+      <mesh position={[coldPos[0], WORLD_H / 2 + 0.18, coldPos[2]]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[ringR, 0.035, 8, 32]} />
+        <meshBasicMaterial color="#22d3ee" />
+      </mesh>
     </group>
   );
 }
@@ -281,16 +315,13 @@ function ThermalScene({
       {coolingOn && hConv > 0 && <Airflow totalX={L.totalX} totalZ={L.totalZ} hConv={hConv} />}
       <HeatShimmer positions={cellPositions} temps={temps} />
 
-      {/* hottest / coldest markers */}
+      {/* hottest / coldest markers — text-free colour rings, so nothing can overlap */}
       {temps.length > 1 && (
-        <>
-          <Html position={[cellPositions[hot][0], WORLD_H / 2 + 0.32, cellPositions[hot][2]]} center distanceFactor={9} zIndexRange={[20, 0]}>
-            <div className="rounded border border-red-400 bg-card/95 px-1.5 py-0.5 text-[9px] font-bold text-red-600 dark:text-red-400 shadow-sm whitespace-nowrap">hottest {temps[hot].toFixed(1)}°C</div>
-          </Html>
-          <Html position={[cellPositions[cold][0], WORLD_H / 2 + 0.32, cellPositions[cold][2]]} center distanceFactor={9} zIndexRange={[20, 0]}>
-            <div className="rounded border border-cyan-400 bg-card/95 px-1.5 py-0.5 text-[9px] font-bold text-cyan-700 dark:text-cyan-300 shadow-sm whitespace-nowrap">coldest {temps[cold].toFixed(1)}°C</div>
-          </Html>
-        </>
+        <HotColdRings
+          hotPos={cellPositions[hot]}
+          coldPos={cellPositions[cold]}
+          ringR={Math.max(0.3, L.R * 0.85 + 0.05)}
+        />
       )}
 
       {/* steel enclosure (toggleable — it hides the cells otherwise) */}
@@ -406,7 +437,7 @@ export default function PackThermal3D({
       </div>
 
       <p className={cn("text-[11px] text-muted-foreground")}>
-        Every cell is coloured by the per-cell thermal field around the Bernardi lumped mean — with cooling on, cells downstream of the airflow and away from the walls run hotter, and heat shimmer rises above cells beyond 48 °C. The field updates live as the test replays.
+        Every cell is coloured by the per-cell thermal field around the Bernardi lumped mean — with cooling on, cells downstream of the airflow and away from the walls run hotter, and heat shimmer rises above cells beyond 48 °C. The hottest cell is ringed red and the coldest cyan (matching the readout chips on the canvas), and the field updates live as the test replays.
       </p>
     </div>
   );

@@ -250,3 +250,25 @@ Work Log:
 
 Stage Summary:
 - Live pack thermal map no longer overlaps in any configuration: scale bar clearance guaranteed (cooling on/off), small packs centre instead of upscaling into giant text, airflow caption and arrow line are separated.
+
+---
+Task ID: 17
+Agent: main (Z.ai)
+Task: Per user request — "in the 3d model i am not able to identify the positive and negative terminal" (+ harden the 3D thermal view against label overlap, companion to Task 16's 2D map fix).
+
+Work Log:
+- pack-3d.tsx (terminals now unmistakable):
+  * Cylindrical cells: + nub recoloured bright red (#dc2626), enlarged (R*0.28/0.30, h 0.2) so it pokes visibly through the nickel busbar; NEW dark ring (torus #334155) around the can base = the − terminal (steel can body is negative).
+  * Pouch cells: single silver block replaced by TWO tabs on top — red (+) and dark (−).
+  * Main pack terminals: small 0.09r posts replaced by large colour-coded posts (r 0.12/0.14, h 0.24) with washer torus rings at the base — red = + at the outer end of the first group, dark slate = − at the outer end of the last group.
+  * Removed the two floating "+ terminal"/"− terminal" Html labels (overlap-prone while orbiting); identification is now colour + text-free.
+  * Spec card (bottom-left, screen-space) gained a polarity row: "+ positive — red caps & red post" / "− negative — dark base rings & dark post"; below-canvas legend chip "main terminals" split into + (red) and − (dark) chips; description paragraph mentions the colour coding.
+- pack-thermal-3d.tsx (overlap-proof hot/cold marking):
+  * Removed the three always-on 3D-anchored Html labels ("hottest x°C", "coldest x°C", "cooling airflow · h=…") — they piled onto each other while orbiting (coldest cell sits at the airflow inlet next to the fan label; hot/cold cells are often neighbours).
+  * New HotColdRings component: text-free bobbing torus halos — red above the hottest cell, cyan above the coldest, radius scales with cell R (max(0.3, R*0.85+0.05)). Values stay in the screen-space chips top-left.
+  * Html import removed (zero floating DOM labels in the thermal scene → overlap impossible); description updated to explain the rings.
+- VERIFIED (agent-browser): 1S1P + 2S2P Modeling views show red caps through busbars + red/dark posts + polarity legend row (light AND dark mode); Thermal 4S2P shows red/cyan rings floating above adjacent hottest/coldest cells with zero label collisions; 2D Live pack thermal map (4S2P) still clean (S1–S4/P1–P2, ringed tiles, scale bar clear); Analysis "Final pack" 3D inherits the polarity legend; 390px scrollW = 390 on Modeling/Thermal/Analysis; zero page errors; lint clean; tsc src/ clean.
+- Screenshots: download/t17-modeling-terminals.png (1S1P light), t17-modeling-2s2p.png (light), t17-modeling-dark.png (dark), t17-thermal-3d-4s2p-rings.png, t17-thermal-map-4s2p.png.
+
+Stage Summary:
+- Every cell and the pack itself now carry colour-coded polarity (red = +, dark = −) in all PackViewer3D instances (Modeling + Analysis), and the 3D thermal view marks hottest/coldest with text-free rings — no overlapping elements possible in either 3D view.
