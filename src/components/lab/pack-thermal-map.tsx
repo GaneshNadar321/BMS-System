@@ -55,7 +55,13 @@ export function PackThermalMap({
   const bankW = groupCols * (CW + GAP) - GAP;
   const gridH = parallel * (CH + GAP) - GAP;
   const W = banks * bankW + (banks - 1) * BANK_GAP + 34; // + left labels
-  const H = gridH + 46; // header + airflow lane
+  const cellTop = coolingOn ? 34 : 24;
+  // Widen/tall-enough canvas: small packs (1S1P…) must not upscale text into
+  // overlapping glyphs, and the scale bar must never touch the last cell row
+  // (cells shift down 10px when the airflow lane is shown — H must follow).
+  const VW = Math.max(W, 240);
+  const VH = Math.max(cellTop + gridH + 36, 84);
+  const ox = (VW - W) / 2;
 
   let cellIdx = 0;
   const soc = cur.soc / 100;
@@ -94,17 +100,17 @@ export function PackThermalMap({
 
       {/* the map */}
       <div className="overflow-x-auto rounded-lg border bg-gradient-to-b from-slate-50 to-slate-100 p-2 dark:from-slate-900 dark:to-slate-950">
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full min-w-[420px]" role="img" aria-label="Live thermal map of the battery pack">
-          {/* airflow lane */}
+        <svg viewBox={`0 0 ${VW} ${VH}`} className="w-full min-w-[420px]" role="img" aria-label="Live thermal map of the battery pack">
+          {/* airflow lane — full viewBox width, text and line never cross */}
           {coolingOn && hConv > 0 && (
             <g>
               <text x={34} y={14} fontSize={9.5} fill="#0e7490" fontWeight={700}>
                 airflow · h = {hConv} W/m²K
               </text>
-              <line x1={38} y1={10} x2={W - 12} y2={10} stroke="#0e7490" strokeWidth={1.6} strokeDasharray="7 5" markerEnd="url(#airArrow)" />
+              <line x1={158} y1={10} x2={VW - 12} y2={10} stroke="#0e7490" strokeWidth={1.6} strokeDasharray="7 5" markerEnd="url(#airArrow)" />
               {Array.from({ length: 3 }, (_, k) => (
                 <circle key={k} r={2.4} fill="#0e7490" opacity={0.85}>
-                  <animateMotion dur={`${Math.max(0.9, 2.6 - hConv / 90)}s`} begin={`-${k * 0.55}s`} repeatCount="indefinite" path="M 38 10 H 300" />
+                  <animateMotion dur={`${Math.max(0.9, 2.6 - hConv / 90)}s`} begin={`-${k * 0.55}s`} repeatCount="indefinite" path={`M 158 10 H ${VW - 14}`} />
                 </circle>
               ))}
             </g>
@@ -116,7 +122,9 @@ export function PackThermalMap({
             </marker>
           </defs>
 
-          {/* banks × columns × rows */}
+          {/* banks × columns × rows — translated so packs narrower than the
+              canvas stay centred instead of upscaled into overlap */}
+          <g transform={`translate(${ox},0)`}>
           {Array.from({ length: banks }, (_, bank) => {
             const colsThisBank = Math.min(groupCols, shownS - bank * groupCols);
             const bankX = 34 + bank * (bankW + BANK_GAP);
@@ -127,13 +135,13 @@ export function PackThermalMap({
                   const x = bankX + col * (CW + GAP);
                   return (
                     <g key={col}>
-                      <text x={x + CW / 2} y={(coolingOn ? 30 : 20)} fontSize={8.5} textAnchor="middle" fill="#64748b" fontWeight={700}>
+                      <text x={x + CW / 2} y={cellTop - 4} fontSize={8.5} textAnchor="middle" fill="#64748b" fontWeight={700}>
                         S{gi + 1}
                       </text>
                       {Array.from({ length: parallel }, (_, pi) => {
                         const i = gi * parallel + pi;
                         if (i >= shown) return null;
-                        const y = (coolingOn ? 34 : 24) + pi * (CH + GAP);
+                        const y = cellTop + pi * (CH + GAP);
                         const t = temps[i];
                         const isHot = i === hottest;
                         const isCold = i === coldest;
@@ -169,14 +177,15 @@ export function PackThermalMap({
 
           {/* parallel labels on the left */}
           {parallel > 1 && Array.from({ length: Math.min(parallel, 8) }, (_, pi) => (
-            <text key={pi} x={4} y={(coolingOn ? 34 : 24) + pi * (CH + GAP) + CH / 2 + 3} fontSize={8.5} fill="#64748b" fontWeight={700}>
+            <text key={pi} x={4} y={cellTop + pi * (CH + GAP) + CH / 2 + 3} fontSize={8.5} fill="#64748b" fontWeight={700}>
               P{pi + 1}
             </text>
           ))}
+          </g>
 
-          {/* temperature scale */}
+          {/* temperature scale — full viewBox width, pinned below the cells */}
           {(() => {
-            const sx = 34, sy = H - 12, sw = Math.min(220, W - 48);
+            const sx = 34, sy = VH - 12, sw = Math.min(220, VW - 48);
             const stops = [ambientC, 35, 45, 60, 85, 130];
             return (
               <g>

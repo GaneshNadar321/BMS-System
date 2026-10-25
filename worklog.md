@@ -234,3 +234,19 @@ Work Log:
 
 Stage Summary:
 - Modeling tab is now pack-only: one interactive 3D full-pack model + mechanical specification strip, per request.
+
+---
+Task ID: 16
+Agent: main (Z.ai)
+Task: Per user report — "Live pack thermal map: its overlapping one each other" (elements overlap in the 2D live pack thermal map on the Thermal tab).
+
+Work Log:
+- ROOT CAUSES (pack-thermal-map.tsx), three distinct overlaps:
+  1. Scale bar over cells when cooling ON: cells shift down 10px (cellTop 24→34) for the airflow lane but H stayed gridH+46 with the scale pinned at H−12 → the bar sat exactly on the bottom cell row. Fixed: H replaced by VH = max(cellTop+gridH+36, 84) — 17px guaranteed clearance below the cells in both modes.
+  2. Small packs (1S1P/3S1P — the fresh-design default): viewBox W could be 55–104px while CSS min-w-[420px] forced a 4–7.6× upscale → labels/text scaled into giant overlapping glyphs. Fixed: VW = max(W, 240); grid wrapped in translate(ox,0), ox=(VW−W)/2 — content is centred, never upscaled beyond ~1.75×; scale bar widened to min(220, VW−48) so it's always a proper gradient strip.
+  3. Airflow dashed line crossed its own "airflow · h = …" caption (line started x=38, text spans from x=34). Fixed: line + animated dots now start at x=158 (after the caption) and run to VW−12 in viewBox coords.
+- Also made the S/P cell coordinates derive from cellTop (single source) instead of repeating the coolingOn ternary.
+- VERIFIED (agent-browser): 1S1P cooling off (viewBox 240×90) and cooling on (240×100, airflow lane beside the caption, scale clear of the cell) — screenshot t16-map-1s1p-cooling-on.png; 13S3P cooling on (viewBox 349×167): S1–S13 + P1–P3 labels, 39 temp tiles, hottest ring, scale bar fully below P3 row, zero overlap — t16-map-13s3p-cooling-on.png; 390px Thermal scrollW 390 = viewport; zero page errors; lint clean; tsc src/ clean.
+
+Stage Summary:
+- Live pack thermal map no longer overlaps in any configuration: scale bar clearance guaranteed (cooling on/off), small packs centre instead of upscaling into giant text, airflow caption and arrow line are separated.
