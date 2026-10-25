@@ -220,3 +220,17 @@ Stage Summary:
 - Analysis tab now shows the final full-pack battery in 3D with Spec CSV + Snapshot PNG exports, data sourced from the latest stored run.
 - Root-caused and fixed a silent data-loss bug: simulation-created design rows were missing 24 fields (nominalV, dims, materials…); existing rows backfilled from the datasheet library.
 - Screenshots: download/t14-modeling-spec-bottomleft.png, download/t14-analysis-3d-exports.png.
+
+---
+Task ID: 15
+Agent: main (Z.ai)
+Task: Per user request — "IN MODELING THERE WILL BE ONLY FULL PACK, NO SINGLE CELL 3D MODEL".
+
+Work Log:
+- model-tab.tsx: removed the Cell | Full pack toggle (view3d state, role=group button group) and the CellViewer3D dynamic import; the tab now renders PackViewer3D directly. Card title fixed to "3D pack model — interactive"; description shows only the finished-pack wording (S groups × P cells, busbars, BMS, enclosure); SectionTitle desc updated to "the full pack in interactive 3D". Mechanical spec strip unchanged.
+- cell-3d.tsx kept in the tree — pack-3d / pack-thermal-3d still import CHEM_COLORS + dimsOf from it; its CellViewer3D export is now unused (dynamically imported nowhere → never loaded, zero bundle cost).
+- VERIFIED (agent-browser): Modeling has no 3D-view toggle and no "Cell" button, canvas renders the pack, bottom-left spec card present; lint clean; tsc src/ clean; 390px Modeling scrollW 390 = viewport; zero page errors.
+- Screenshot: download/t15-modeling-pack-only.png.
+
+Stage Summary:
+- Modeling tab is now pack-only: one interactive 3D full-pack model + mechanical specification strip, per request.

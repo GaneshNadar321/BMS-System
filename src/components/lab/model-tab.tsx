@@ -1,28 +1,22 @@
 "use client";
 
-import { useState } from "react";
 import dynamic from "next/dynamic";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Microscope, Box, Ruler, Weight, Layers, Package } from "lucide-react";
 import { useLabStore } from "@/lib/lab/store";
 import { SectionTitle, StatCard, WizardNav } from "./shared";
 
-// 3D viewers — client-only (WebGL), code-split out of the main bundle
-const CellViewer3D = dynamic(() => import("./cell-3d").then((m) => m.CellViewer3D), {
-  ssr: false,
-  loading: () => <div className="h-[340px] rounded-lg border bg-slate-100 dark:bg-slate-900 animate-pulse" />,
-});
+// 3D pack viewer — client-only (WebGL), code-split out of the main bundle
 const PackViewer3D = dynamic(() => import("./pack-3d"), {
   ssr: false,
   loading: () => <div className="h-[360px] rounded-lg border bg-slate-100 dark:bg-slate-900 animate-pulse" />,
 });
 
-// Mechanical modeling only — how the cell and the finished pack are BUILT:
+// Mechanical modeling only — how the finished pack is BUILT:
 // geometry, materials and pack layout in interactive 3D. The electrical
 // behaviour (2RC ECM) is simulated in the Simulation tab.
 export function ModelTab() {
   const { design, pack } = useLabStore();
-  const [view3d, setView3d] = useState<"cell" | "pack">("cell");
 
   const isPouch = /pouch|prismatic|blade/i.test(design.formFactor || "");
   const dims =
@@ -38,38 +32,21 @@ export function ModelTab() {
       <SectionTitle
         icon={<Microscope className="h-5 w-5" />}
         title="3 · Mechanical Modeling"
-        desc="How your battery is built — cell construction and the finished pack in interactive 3D. Electrical behaviour is modelled in Simulation."
+        desc="How your finished battery is built — the full pack in interactive 3D. Electrical behaviour is modelled in Simulation."
       />
 
-      {/* 3D model — single cell or the finished pack */}
+      {/* 3D model — the finished pack */}
       <Card>
         <CardHeader className="pb-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Box className="h-4 w-4 text-primary" /> 3D {view3d === "cell" ? "cell" : "pack"} model — interactive
-            </CardTitle>
-            <div className="flex items-center gap-1 rounded-md border bg-muted/40 p-0.5" role="group" aria-label="3D view">
-              {(["cell", "pack"] as const).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setView3d(m)}
-                  className={`rounded px-3 py-1 text-[11px] font-semibold capitalize transition-colors ${
-                    view3d === m ? "bg-primary text-white shadow-sm" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {m === "cell" ? "Cell" : "Full pack"}
-                </button>
-              ))}
-            </div>
-          </div>
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Box className="h-4 w-4 text-primary" /> 3D pack model — interactive
+          </CardTitle>
           <CardDescription>
-            {view3d === "cell"
-              ? `Geometry from your design (${design.formFactor || "cylindrical"}) · cutaway shows the jelly roll · Li⁺ shuttle animates charge / discharge`
-              : `Your finished battery: ${pack.series} group${pack.series === 1 ? "" : "s"} in series × ${pack.parallel} cell${pack.parallel === 1 ? "" : "s"} in parallel with busbars, BMS and enclosure — exactly as configured in Connection`}
+            {`Your finished battery: ${pack.series} group${pack.series === 1 ? "" : "s"} in series × ${pack.parallel} cell${pack.parallel === 1 ? "" : "s"} in parallel with busbars, BMS and enclosure — exactly as configured in Connection`}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {view3d === "cell" ? <CellViewer3D design={design} /> : <PackViewer3D design={design} series={pack.series} parallel={pack.parallel} />}
+          <PackViewer3D design={design} series={pack.series} parallel={pack.parallel} />
         </CardContent>
       </Card>
 
