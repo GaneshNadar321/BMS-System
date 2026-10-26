@@ -290,3 +290,24 @@ Work Log:
 
 Stage Summary:
 - BatteryLab now has a cohesive professional design system: glass navigation with scroll progress, gradient brand identity, staggered card entrances on every step, hover lift on stats/charts/cards, press feedback on buttons, animated copilot, theme-toggle pop, and a full reduced-motion accessibility guard — implemented purely with CSS/Tailwind (zero new dependencies).
+
+---
+Task ID: 19
+Agent: main (Z.ai)
+Task: Per user request - "i need an detial report of this website how to use this and architure of this webssite in the report it should be detialed technical report" - produce a detailed technical report (user guide + architecture) as a PDF deliverable.
+
+Work Log:
+- Loaded pdf skill (Report route): read SKILL.md, briefs/report.md, configs/fonts.md, typesetting/{cover,palette,charts,overflow,pagination,fill-engine,typography,cover-backgrounds,geometry}.md in full.
+- Gathered source-of-truth details: worklog Tasks 1-18, package.json, prisma/schema.prisma, src/lib/lab/{engine,store,library,pack,use-playback}.ts, src/app/page.tsx, api routes (simulate/copilot/designs/runs), monitor-hardware.tsx; live API counts (11 designs, 50 runs).
+- Captured 13 fresh screenshots from a live 1440x900 session (load 25R cell, 48V/10Ah targets, 13S4P schematic, 1C run, all 7 tabs + Library + copilot + dark mode + 390px mobile) into download/report-shots/.
+- Built architecture diagram via Playwright+CSS at 2x (scripts/report-diagram.html -> scripts/report-diagram.png, 1480x990).
+- Built cover with Template 07 Crystal Blue (scripts/report-cover.html): validated with poster_validate.py check-html + cover_validate.js (pass), rendered via html2poster.js --width 794px; fixed hero from 4-line/46pt overflow to 3-line/36pt per S3.1.
+- Wrote scripts/gen-report-body.py (ReportLab, TocDocTemplate + multiBuild, FreeSerif family + install_font_fallback, Crystal Blue body palette, CondPageBreak 25% for H1, proportional colWidths + repeatRows=1 + Paragraph-wrapped cells, KeepTogether capped at 40% page height, roman TOC / arabic body numbering via BodyStartMarker).
+- Content: 10 chapters (Exec Summary w/ stat callouts, Product Overview, Getting Started, 8-section User Guide with 9 annotated screenshots, VoltAI Copilot, System Architecture w/ diagram + stack table + repo layout + state/3D/playback/motion, Physics Engine w/ 2RC + Bernardi equations + profiles + safety tables, Data Layer & API, Frontend Quality, Extensibility & Roadmap incl. cost/ageing/A-B/assumptions candidates).
+- Fixes during build: variable-font NotoSansSC unparseable -> optional registration with graceful degradation; bulletFontName pinned to FreeSerif (Helvetica default banned); cover page normalized to exact A4 in merge (0.6pt mismatch); TOC intro paragraph trimmed to kill a near-empty roman page; tall tables now split naturally with repeated headers instead of jumping pages.
+- QA (all PASS): pdf_qa.py (metadata, page size, blank pages, punctuation, embedded fonts, no overflow, fill ratio, full-bleed cover, symmetric margins, table centering, TOC populated), toc.check pass, font.check 0 issues, pages.clean no-op, meta.brand applied. Helvetica resource entry verified as never-rendered (0 spans).
+
+Stage Summary:
+- Deliverable: /home/z/my-project/download/BatteryLab-Technical-Report-and-User-Guide.pdf (28 pages, ~2.3 MB, cover + TOC(i-ii) + 25 body pages, 12 figures, 8 tables).
+- Supporting artifacts: scripts/report-cover.html/.pdf, scripts/report-diagram.html/.png, scripts/gen-report-body.py, scripts/merge-report.py, scripts/shot-diagram.js; screenshots in download/report-shots/.
+- App source unchanged this task (documentation-only deliverable); dev server untouched and healthy.
