@@ -12,6 +12,7 @@ import { SimulateTab } from "@/components/lab/simulate-tab";
 import { ThermalTab } from "@/components/lab/thermal-tab";
 import { MonitorTab } from "@/components/lab/monitor-tab";
 import { AnalysisTab } from "@/components/lab/analysis-tab";
+import { EngineeringTab } from "@/components/lab/engineering-tab";
 import { Copilot } from "@/components/lab/copilot";
 import { ThemeToggle } from "@/components/lab/theme-toggle";
 
@@ -23,6 +24,7 @@ const STEPS = [
   { id: "thermal", label: "Thermal" },
   { id: "monitor", label: "Monitor" },
   { id: "analysis", label: "Analysis" },
+  { id: "engineering", label: "Engineering" },
 ];
 
 export default function Home() {
@@ -54,6 +56,7 @@ export default function Home() {
     thermal: useLabStore((s) => s.visitedSteps.includes("thermal")),
     monitor: useLabStore((s) => s.visitedSteps.includes("monitor")),
     analysis: useLabStore((s) => s.visitedSteps.includes("analysis")),
+    engineering: useLabStore((s) => s.alternatives.length >= 2),
   };
 
   const navBtn = (active: boolean) =>
@@ -131,6 +134,7 @@ export default function Home() {
           {activeTab === "thermal" && <ThermalTab />}
           {activeTab === "monitor" && <MonitorTab />}
           {activeTab === "analysis" && <AnalysisTab />}
+          {activeTab === "engineering" && <EngineeringTab />}
         </div>
       </main>
 

@@ -6,6 +6,11 @@ import {
   type CellDesign, type PackConfig, type SimParams, type SimPoint,
   type RunSummary, type SafetyCheck, type CustomSegment, type Chemistry,
 } from "./engine";
+import {
+  DEFAULT_ASSUMPTIONS, DEFAULT_REQUIREMENTS, DEFAULT_BMS_SPEC, DEFAULT_WEIGHTS,
+  type Assumptions, type Requirements, type BmsSpec, type RecommendationWeights,
+  type CoolingTier, type AltInput,
+} from "./engineering";
 import { cellToDesign, type LibraryCell } from "./library";
 
 export interface SimResponse {
@@ -128,6 +133,27 @@ export const defaultSimParams: SimParams = {
   customSegments: [] as CustomSegment[],
 };
 
+// ------------------------------------------------------------
+// Engineering state — requirements, assumptions, BMS spec,
+// design alternatives for A/B/C comparison. Stored alongside
+// the design/pack/simParams so the Engineering tab reads from
+// the same source of truth as the rest of the wizard.
+// ------------------------------------------------------------
+
+export interface DesignAlternative {
+  id: string;
+  name: string;
+  // A snapshot of the design + pack + cooling choice. Cloned from
+  // the current Design+Connection state when the user clicks
+  // "Save current as Alternative".
+  design: CellDesign;
+  pack: PackConfig;
+  cooling: CoolingTier;
+  // Optional reference to a stored TestRun id — when present, the
+  // scoring pulls the peak temp / charge time from that run.
+  runId?: string;
+}
+
 interface LabState {
   design: CellDesign;
   pack: PackUIState;
@@ -145,6 +171,13 @@ interface LabState {
   copilotMessages: CopilotMessage[];
   copilotBusy: boolean;
 
+  // Engineering module
+  requirements: Requirements;
+  assumptions: Assumptions;
+  bmsSpec: BmsSpec;
+  alternatives: DesignAlternative[];
+  recommendationWeights: RecommendationWeights;
+
   setActiveTab: (t: string) => void;
   setBuildStage: (v: number) => void;
   updateDesign: (patch: Partial<CellDesign>) => void;
@@ -154,6 +187,16 @@ interface LabState {
   setSimParams: (patch: Partial<SimParams>) => void;
   setRunning: (r: boolean) => void;
   setLastResult: (r: SimResponse | null) => void;
+
+  setRequirements: (patch: Partial<Requirements>) => void;
+  setAssumptions: (patch: Partial<Assumptions>) => void;
+  setBmsSpec: (patch: Partial<BmsSpec>) => void;
+  setRecommendationWeights: (patch: Partial<RecommendationWeights>) => void;
+  addAlternative: (name?: string) => string;
+  removeAlternative: (id: string) => void;
+  renameAlternative: (id: string, name: string) => void;
+  setAlternativeCooling: (id: string, cooling: CoolingTier) => void;
+  clearAlternatives: () => void;
 
   setCopilotOpen: (v: boolean) => void;
   sendCopilotMessage: (content: string) => Promise<void>;
@@ -174,6 +217,13 @@ export const useLabStore = create<LabState>((set, get) => ({
   copilotOpen: false,
   copilotMessages: [],
   copilotBusy: false,
+
+  // Engineering module — sensible defaults; everything is editable.
+  requirements: { ...DEFAULT_REQUIREMENTS },
+  assumptions: { ...DEFAULT_ASSUMPTIONS, cellPricePerWh: { ...DEFAULT_ASSUMPTIONS.cellPricePerWh }, coolingOverhead: { ...DEFAULT_ASSUMPTIONS.coolingOverhead } },
+  bmsSpec: { ...DEFAULT_BMS_SPEC },
+  alternatives: [],
+  recommendationWeights: { ...DEFAULT_WEIGHTS },
 
   setActiveTab: (t) =>
     set((s) => ({
@@ -199,6 +249,36 @@ export const useLabStore = create<LabState>((set, get) => ({
   setSimParams: (patch) => set((s) => ({ simParams: { ...s.simParams, ...patch } })),
   setRunning: (r) => set({ running: r }),
   setLastResult: (r) => set({ lastResult: r }),
+
+  setRequirements: (patch) => set((s) => ({ requirements: { ...s.requirements, ...patch } })),
+  setAssumptions: (patch) => set((s) => ({ assumptions: { ...s.assumptions, ...patch } })),
+  setBmsSpec: (patch) => set((s) => ({ bmsSpec: { ...s.bmsSpec, ...patch } })),
+  setRecommendationWeights: (patch) => set((s) => ({ recommendationWeights: { ...s.recommendationWeights, ...patch } })),
+
+  // Add the current Design+Connection state as a named alternative.
+  // Returns the new id so the UI can highlight it.
+  addAlternative: (name) => {
+    const st = get();
+    const id = `alt-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    const alt: DesignAlternative = {
+      id,
+      name: name?.trim() || `Option ${String.fromCharCode(65 + st.alternatives.length)}`, // A, B, C…
+      design: { ...st.design },
+      pack: { series: st.pack.series, parallel: st.pack.parallel },
+      cooling: st.simParams.coolingOn
+        ? (st.simParams.hConv >= 100 ? "liquid" : st.simParams.hConv >= 25 ? "forcedAir" : "naturalAir")
+        : "none",
+      runId: st.lastResult?.runId,
+    };
+    set((s) => ({ alternatives: [...s.alternatives, alt] }));
+    return id;
+  },
+  removeAlternative: (id) => set((s) => ({ alternatives: s.alternatives.filter((a) => a.id !== id) })),
+  renameAlternative: (id, name) =>
+    set((s) => ({ alternatives: s.alternatives.map((a) => (a.id === id ? { ...a, name: name.slice(0, 40) } : a)) })),
+  setAlternativeCooling: (id, cooling) =>
+    set((s) => ({ alternatives: s.alternatives.map((a) => (a.id === id ? { ...a, cooling } : a)) })),
+  clearAlternatives: () => set({ alternatives: [] }),
 
   setCopilotOpen: (v) => set({ copilotOpen: v }),
 
@@ -227,6 +307,20 @@ export const useLabStore = create<LabState>((set, get) => ({
       lastResult: st.lastResult
         ? { summary: st.lastResult.summary, checks: st.lastResult.checks }
         : null,
+      // Engineering module context — gives the copilot visibility into
+      // the requirements, cost, ageing and any saved alternatives so it
+      // can comment on trade-offs and recommendations.
+      requirements: st.requirements,
+      assumptions: {
+        structureAllowancePct: st.assumptions.structureAllowancePct,
+        packOverheadPct: st.assumptions.packOverheadPct,
+        cellPricePerWh: st.assumptions.cellPricePerWh,
+        ocpSafetyFactor: st.assumptions.ocpSafetyFactor,
+        fuseDerating: st.assumptions.fuseDerating,
+        contactorDerating: st.assumptions.contactorDerating,
+      },
+      alternatives: st.alternatives.length,
+      recommendationWeights: st.recommendationWeights,
     };
 
     try {

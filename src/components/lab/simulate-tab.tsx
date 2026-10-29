@@ -265,6 +265,10 @@ export function SimulateTab() {
             {s ? (
               <>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 stagger">
+                  {/* Engine computes 20 metrics in RunSummary — surfaced here in full
+                      so the UI matches the technical report's claim. The first row is
+                      the primary 12 (energy, capacity, voltage, temperature, power);
+                      the second row is the remaining 8 (start/end, heat, cutoff). */}
                   <StatCard label="Throughput" value={s.capacityAh} unit="Ah" hint="charge moved" />
                   <StatCard
                     label={simParams.profile === "cccv" ? "Energy in" : "Energy out"}
@@ -281,9 +285,20 @@ export function SimulateTab() {
                   <StatCard label="Test time" value={fmtT(s.durationS)} />
                   <StatCard label="Pack capacity" value={s.packCapacityAh} unit="Ah" />
                   <StatCard label="V end" value={s.vEnd.toFixed(2)} unit="V" />
+                  {/* Remaining 8 metrics — completes the 20-metric RunSummary panel
+                      and removes the "report says 20 / UI shows 12" inconsistency. */}
+                  <StatCard label="V start" value={s.vStart.toFixed(2)} unit="V" />
+                  <StatCard label="V max" value={s.vMax.toFixed(2)} unit="V" />
+                  <StatCard label="V min" value={s.vMin.toFixed(2)} unit="V" />
+                  <StatCard label="Temp start" value={s.tempStartC} unit="°C" />
+                  <StatCard label="Temp end" value={s.tempEndC} unit="°C" hint={`ΔT +${s.deltaT} K`} />
+                  <StatCard label="Peak power" value={s.peakPowerW} unit="W" />
+                  <StatCard label="SOC start" value={s.socStart} unit="%" />
+                  <StatCard label="SOC end" value={s.socEnd} unit="%" />
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="text-xs">{PROFILES.find((p) => p.id === simParams.profile)?.label}</Badge>
+                  <Badge variant="outline" className="text-xs text-amber-700 border-amber-300 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/40">Cutoff: {s.cutoff}</Badge>
                   <Button size="sm" variant="outline" onClick={exportCsv}>
                     <Download className="h-3.5 w-3.5 mr-1" /> Export CSV
                   </Button>

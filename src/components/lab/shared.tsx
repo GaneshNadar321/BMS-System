@@ -17,6 +17,7 @@ export const WIZARD = [
   { id: "thermal", label: "Thermal" },
   { id: "monitor", label: "Monitor" },
   { id: "analysis", label: "Analysis" },
+  { id: "engineering", label: "Engineering" },
 ] as const;
 
 /** mm:ss (or h:mm:ss) clock used by every playback bar. */

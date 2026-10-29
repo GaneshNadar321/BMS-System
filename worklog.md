@@ -311,3 +311,63 @@ Stage Summary:
 - Deliverable: /home/z/my-project/download/BatteryLab-Technical-Report-and-User-Guide.pdf (28 pages, ~2.3 MB, cover + TOC(i-ii) + 25 body pages, 12 figures, 8 tables).
 - Supporting artifacts: scripts/report-cover.html/.pdf, scripts/report-diagram.html/.png, scripts/gen-report-body.py, scripts/merge-report.py, scripts/shot-diagram.js; screenshots in download/report-shots/.
 - App source unchanged this task (documentation-only deliverable); dev server untouched and healthy.
+
+---
+
+## Task 20 — Engineering module: requirements / cost / ageing / protection / A-B-C compare / assumptions (reviewer gap closure)
+
+Task ID: 20
+Agent: main (Z.ai)
+Task: Per user feedback — "No comparison of design options… No cost indicator… No requirements or traceability… No recommendation or trade-off scoring… Protection and control are thin… Interface conflicts are not detected… add this feature." Implement all 6 reviewer-flagged gaps + the 4 inconsistency fixes (20 vs 12 metrics, leftover test data, entropic-T-in-Kelvin, fixed 25% structure allowance).
+
+Work Log:
+- Explored codebase first: prisma/schema.prisma (BatteryDesign 44 fields / TestRun), src/lib/lab/store.ts (zustand), src/lib/lab/engine.ts (2RC Thevenin + Bernardi, RunSummary 20 fields), src/components/lab/{design-tab, simulate-tab, analysis-tab, shared}.tsx, src/app/api/{simulate,runs,designs}/route.ts, src/app/page.tsx (7-step wizard). Confirmed: simulate-tab shows 12 of 20 RunSummary fields; Analysis has no bulk-reset; packMath hard-codes 25% structure allowance; entropic term already uses Kelvin (engine.ts:503 `const TK = tempC + 273.15`).
+- New module src/lib/lab/engineering.ts (602 lines, all pure, client-safe):
+  - Assumptions interface + DEFAULT_ASSUMPTIONS — every previously hard-coded fudge factor is now an editable input (structureAllowancePct, packOverheadPct, cellPricePerWh by 8 chemistries, packAssemblyPerCell, coolingOverhead{none,naturalAir,forcedAir,liquid}, ageingActivationEnergyKjPerMol, calendarRefTempC, dodExponent, ocpSafetyFactor, fuseDerating, contactorDerating, contactorPulseDerating, thermistorsPerCell, voltageTolerancePct, energyTolerancePct). Defaults reproduce prior behaviour exactly.
+  - packMath(d, p, assumptions) wrapper — overrides packMassKg + gravimetricWhKg with the (now editable) structure allowance factor; other fields delegate to engine.packMath.
+  - costModel → CostBreakdown (cellCostUsd, assemblyCostUsd, coolingCostUsd, bmsCostUsd, totalUsd, perKwhUsd, perCellUsd, breakdownPct). BMS cost = 12×S + max(20, packWh × 0.005)×(1+packOverhead).
+  - ageingModel(d, input, a) → AgeingResult — cycle fade ∝ √N · DoD^α anchored to datasheet cycleLife @ 20% fade; calendar Arrhenius Ea=35 kJ/mol refT=25°C with high-SOC penalty f(soc)=0.5+(soc/100)²; bisection solve for EOL years; bisection-free closed-form for EOL cycles.
+  - protectionPlan(d, p, a) → ProtectionPlan — OVP=Vmax·S·1.02, UVP=Vmin·S·0.98, OCP=maxDischargeC·capacity·P·1.2, OTP=dischargeTempMax, fuse=OCP·1.25, contactor cont.=OCP·1.25, contactor pulse=pulse·1.5, thermistors=max(S, ⌈cellCount·0.25⌉), BMS V range ±10% of cell window, balance current C/30. 8 threshold-rationale checks.
+  - interfaceConflicts(d, p, plan, bmsSpec) — 5 cross-checks: BMS voltage range vs pack (FAIL if it doesn't cover UVP-OVP), BMS current vs OCP, contactor pulse vs pack pulse, fuse interrupt vs estimated pack short-circuit (Vmax/R0·P), cooling capacity vs worst-case Joule heat.
+  - checkRequirements(req, ctx) — pass/fail/warn per requirement (targetPackV ±2%, targetPackWh ±5%, maxTempC from latest run, chargeTimeMin from CC-CV run, maxCostUsd from costModel, minCycleLife from ageingModel.eolCycles).
+  - scoreAlternatives(alts, req, weights, a) — weighted 0..100 scoring across 6 criteria (desirability/feasibility/engineering/cost/innovation/business) mirroring the brief's rubric. Returns risks (5 checks) + assumptions (4 explicit statements) per alternative.
+- Extended src/lib/lab/store.ts: new state slices (requirements, assumptions, bmsSpec, alternatives, recommendationWeights) + actions (setRequirements, setAssumptions, setBmsSpec, setRecommendationWeights, addAlternative/removeAlternative/renameAlternative/setAlternativeCooling/clearAlternatives). addAlternative clones current design+pack+cooling into a snapshot with id `alt-{ts}-{rand}`. Copilot context payload extended with requirements + assumptions + alternative count + weights so the AI can comment on trade-offs.
+- New src/components/lab/engineering-tab.tsx (~470 lines, single component with 7 panels + sub-components CompareRow/NumField/TextField):
+  1. Status strip (4 StatCards: requirements pass/total, pack cost, SoH @ service life, interface conflicts)
+  2. Requirements panel — 8 inputs (application, targetPackV, targetPackWh, maxTempC, chargeTimeMin, maxCostUsd, minCycleLife, serviceYears) + live pass/fail list with target vs actual
+  3. Cost BOM card — 4 StatCards (cells/assembly/cooling/BMS) + PieChart breakdown + total + per-kWh
+  4. Ageing card — 6 StatCards (cycle/calendar/total/SoH/EoL cycles/EoL years) + horizontal BarChart fade decomposition
+  5. Protection & sensing card — 11 StatCards (OVP/UVP/OTP/OCP-cont/OCP-pulse/fuse/contactor-cont/contactor-pulse/thermistors/BMS V range/balance) + threshold list with rationale
+  6. Interface conflicts card — 4 BMS datasheet inputs + 5 conflict rows (each with PASS/WARN/FAIL badge)
+  7. Design A/B/C comparison card — "Save current as Alternative" button (gated on design completeness) + side-by-side table (11 metrics × N alternatives: chemistry, pack config, usable energy, mass, peak temp, charge time, cost, cost/kWh, EoL cycles, SoH, weighted score) + per-row rename input + per-row cooling Select + remove button + stacked BarChart of weighted-score breakdown
+  8. Recommendation & risks card (only when ≥1 alt saved) — top pick name + score badge + risks list + assumptions list + "Ask copilot to weigh in" + "View test-run history" buttons
+  9. Assumptions panel — 13 numeric inputs (structure allowance, pack overhead, assembly per cell, V/energy tolerance, OCP/fuse/contactor deratings, thermistors per cell, Ea, ref T, DoD exponent) + 8 cell price inputs (one per chemistry) + 4 cooling overhead inputs + 6 recommendation weight inputs (with sum readout)
+- Wired into wizard: shared.tsx WIZARD array → added `{ id: "engineering", label: "Engineering" }` as 8th step; page.tsx STEPS array + page.tsx render branch + page.tsx `done.engineering = alternatives.length >= 2` derived checkmark.
+- Data-hygiene fixes:
+  - simulate-tab.tsx: added 8 missing StatCards (V start, V max, V min, Temp start, Temp end, Peak power, SOC start, SOC end) + explicit Cutoff badge — UI now matches the report's "20 metrics" claim.
+  - analysis-tab.tsx: added "Reset all" button (visible only when runs.length > 0) with confirm() dialog + parallel DELETE calls + toast feedback — lets the user clear leftover demo data before demoing.
+  - Verified entropic term uses Kelvin: engine.ts:503 `const TK = tempC + 273.15` then `i * TK * entropic` — confirmed correct, no change needed.
+  - Made the 25% structure allowance editable: packMath now takes `assumptions.structureAllowancePct` (default 0.25 reproduces prior behaviour exactly) and surfaces it in the Assumptions panel.
+- VERIFIED (agent-browser smoke test, 1440x900):
+  - Home loads HTTP 200, no console errors.
+  - Nav now shows 8 step buttons (1..8) ending in Engineering, plus Library.
+  - Engineering tab loads → all 7 panels render: Requirements/Cost BOM/Ageing/Protection & sensing sizing/Interface conflicts/Design A/B/C comparison/Assumptions. Status strip shows pass/total + cost + SoH + conflict count.
+  - Loaded INR18650-25R cell + 2S2P connection → Engineering numbers check out: Pack cost $60 (cells $36 + assembly $5.60 + BMS $19.20 + cooling $0), per-kWh $1677 (small pack inflates), OVP 8.57 V (4.2·2·1.02), UVP 4.9 V (2.5·2·0.98), OCP cont 48 A (8·2.5·2·1.2), Fuse 60 A (48·1.25), Contactor cont 60 A, Contactor pulse 120 A, Thermistors 2, BMS V range 4.5–9.2 V, Balance 0.083 A (C/30), EoL cycles 312 (anchored to 25R's ~300 cycle datasheet). Interface conflicts list correctly flags Contactor-pulse-vs-pack-pulse as OK (120 ≥ 80).
+  - Clicked "Save current as Alternative" → Option A row populated in comparison table (NMC, 2S2P, 36 Wh, 0.22 kg). Recommendation & risks card appeared with score badge + 1 risk ("SoH drops to 33% after 10 years — calendar ageing dominates…") + 4 explicit assumptions + "Ask copilot to weigh in" button.
+  - Assumptions panel: Structure allowance input shows 25 (default), editable.
+  - Screenshots: download/t20-home.png, t20-connection-2s2p.png, t20-engineering-empty.png, t20-engineering-loaded.png, t20-engineering-alt-saved.png.
+- tsc clean for src/{lib/lab,components/lab,app} (only pre-existing errors in unrelated src/components/platform/ and src/lib/battery/); eslint clean on all 7 changed files.
+
+Stage Summary:
+- Closes all 6 reviewer-flagged gaps from the user's critique:
+  1. ✅ Design A/B/C comparison — side-by-side table with 11 metrics + weighted scoring
+  2. ✅ Cost indicator — full BOM (cells + assembly + cooling + BMS) + per-kWh + pie chart
+  3. ✅ Requirements + traceability — 8 targets with pass/fail per requirement
+  4. ✅ Recommendation & trade-off scoring — top pick with score badge + risks list + assumptions list (auditable, not just copilot)
+  5. ✅ Protection & sensing sizing — explicit OVP/UVP/OCP/OTP set-points + fuse + contactor + thermistor count + balance current
+  6. ✅ Interface conflicts — BMS V range vs pack, BMS current vs OCP, contactor pulse vs pack pulse, fuse interrupt vs short-circuit, cooling vs heat
+- Plus the 4 data-hygiene fixes: 20 metrics UI, "Reset all" runs, verified Kelvin entropic, editable structure allowance.
+- New files: src/lib/lab/engineering.ts (602 lines), src/components/lab/engineering-tab.tsx (~470 lines).
+- Modified files: src/lib/lab/store.ts (+91 lines, new state + actions), src/components/lab/shared.tsx (+1 line, WIZARD 8th step), src/app/page.tsx (+5 lines, import + STEPS + render branch + done flag), src/components/lab/simulate-tab.tsx (+11 lines, 8 missing metrics + cutoff badge), src/components/lab/analysis-tab.tsx (+18 lines, Reset all button).
+- Dev server: running on :3000, no compile errors, no console errors in browser.
+- Task 18 (UI/UX polish + animations) remains in the backlog — not started this task.

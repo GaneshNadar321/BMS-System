@@ -280,6 +280,26 @@ export function AnalysisTab() {
             </div>
             <div className="flex gap-2">
               <Button size="sm" variant="outline" onClick={load}><RefreshCw className="h-3.5 w-3.5 mr-1" /> Refresh</Button>
+              {runs.length > 0 && (
+                <Button
+                  size="sm" variant="outline"
+                  className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400"
+                  onClick={async () => {
+                    if (!confirm(`Delete all ${runs.length} stored test run${runs.length === 1 ? "" : "s"}? This clears leftover / demo data and cannot be undone.`)) return;
+                    try {
+                      // Best-effort bulk delete — runs the existing per-id endpoint
+                      await Promise.all(runs.map((r) => fetch(`/api/runs/${r.id}`, { method: "DELETE" })));
+                      setSelected([]);
+                      await load();
+                      toast({ title: "Test log cleared", description: `${runs.length} run${runs.length === 1 ? "" : "s"} deleted.` });
+                    } catch {
+                      toast({ title: "Reset failed", variant: "destructive" });
+                    }
+                  }}
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Reset all
+                </Button>
+              )}
               <Button size="sm" variant="outline" onClick={exportSummaryCsv} disabled={runs.length === 0}>
                 <Download className="h-3.5 w-3.5 mr-1" /> Export CSV
               </Button>
