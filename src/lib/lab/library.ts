@@ -281,6 +281,19 @@ const SPECS: CellSpec[] = [
     chargeTempMinC: 0, chargeTempMaxC: 55, dischargeTempMinC: -20, dischargeTempMaxC: 65,
     selfDischargePctMonth: 1.2,
   },
+  {
+    id: "cnae-32140", brand: "CNAE", model: "32140 ESS A Grade", category: "Cylindrical 26650 / 32700",
+    chemistry: "LFP", formFactor: "Cylindrical 32140",
+    cathode: "LiFePO₄", anode: "Graphite", separator: SEP_LI, electrolyte: ELEC_LI,
+    application: "ESS, solar batteries, electric vehicles, industrial power packs", sourceRef: "CNAE 32140 ESS A Grade datasheet",
+    capacityAh: 15.0, nominalV: 3.2, vmax: 3.65, vmin: 2.0, r0: 0.012,
+    maxDischargeC: 3, maxPulseDischargeC: 4.5, maxChargeC: 1, stdChargeC: 0.5,
+    diameterMm: 32, lengthMm: 140, widthMm: 0, heightMm: 0, thicknessMm: 0,
+    massKg: 0.31, cpJkgK: 1000, entropicVperK: 0.00005,
+    cycleLifeCycles: 3000, cycleLifeNote: "≥3000 cycles @ 80% DOD",
+    chargeTempMinC: 0, chargeTempMaxC: 60, dischargeTempMinC: -20, dischargeTempMaxC: 60,
+    selfDischargePctMonth: 1.5,
+  },
 
   // ---------- LTO ----------
   {
