@@ -22,9 +22,12 @@ Update the `.z-ai-config` file in your project root:
 
 ```json
 {
-  "api_key": "YOUR_ACTUAL_API_KEY_HERE"
+  "baseUrl": "https://api.z.ai/api/paas/v4",
+  "apiKey": "YOUR_ACTUAL_API_KEY_HERE"
 }
 ```
+
+**Note**: The SDK requires both `baseUrl` (with `/v4` suffix) and `apiKey` fields.
 
 #### Option B: User-level Configuration (Works for all your projects)
 
@@ -33,15 +36,23 @@ Create `~/.z-ai-config` (in your home directory):
 **Windows:**
 ```powershell
 # Create the file in your home directory
-New-Item -Path "$env:USERPROFILE\.z-ai-config" -ItemType File -Force
-
-# Add your API key
-Set-Content -Path "$env:USERPROFILE\.z-ai-config" -Value '{"api_key":"YOUR_ACTUAL_API_KEY_HERE"}'
+$config = @"
+{
+  "baseUrl": "https://api.z.ai/api/paas/v4",
+  "apiKey": "YOUR_ACTUAL_API_KEY_HERE"
+}
+"@
+Set-Content -Path "$env:USERPROFILE\.z-ai-config" -Value $config
 ```
 
 **macOS/Linux:**
 ```bash
-echo '{"api_key":"YOUR_ACTUAL_API_KEY_HERE"}' > ~/.z-ai-config
+cat > ~/.z-ai-config << 'EOF'
+{
+  "baseUrl": "https://api.z.ai/api/paas/v4",
+  "apiKey": "YOUR_ACTUAL_API_KEY_HERE"
+}
+EOF
 ```
 
 ## 🚀 Quick Start
@@ -88,20 +99,20 @@ The `.z-ai-config` file is a JSON file with the following structure:
 
 ```json
 {
-  "api_key": "your-api-key-here",
-  "base_url": "https://api.z.ai/api/paas/v4",  // Optional: custom endpoint
-  "model": "glm-5.3",                          // Optional: default model
-  "timeout": 60000                             // Optional: request timeout in ms
+  "baseUrl": "https://api.z.ai/api/paas/v4",
+  "apiKey": "your-api-key-here",
+  "chatId": "optional-chat-id",
+  "userId": "optional-user-id"
 }
 ```
 
 **Required fields:**
-- `api_key`: Your Z.AI API key (required)
+- `baseUrl`: Z.AI API endpoint (must include `/v4` suffix)
+- `apiKey`: Your Z.AI API key
 
 **Optional fields:**
-- `base_url`: Custom API endpoint (defaults to Z.AI's production endpoint)
-- `model`: Default model to use (defaults to what the app specifies)
-- `timeout`: Request timeout in milliseconds
+- `chatId`: Custom chat ID for conversation tracking
+- `userId`: Custom user ID for user tracking
 
 ## 🔒 Security Best Practices
 
